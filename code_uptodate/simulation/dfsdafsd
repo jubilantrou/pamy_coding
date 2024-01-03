@@ -1,0 +1,707 @@
+Help on module sysv_ipc:
+
+NNAAMMEE
+    sysv_ipc - SYSV IPC module
+
+CCLLAASSSSEESS
+    builtins.Exception(builtins.BaseException)
+        Error
+            BusyError
+            ExistentialError
+            InternalError
+            NotAttachedError
+            PermissionsError
+    builtins.object
+        MessageQueue
+        Semaphore
+        SharedMemory
+    
+    class BBuussyyEErrrroorr(Error)
+     |  Common base class for all non-exit exceptions.
+     |  
+     |  Method resolution order:
+     |      BusyError
+     |      Error
+     |      builtins.Exception
+     |      builtins.BaseException
+     |      builtins.object
+     |  
+     |  Data descriptors inherited from Error:
+     |  
+     |  ____wweeaakkrreeff____
+     |      list of weak references to the object (if defined)
+     |  
+     |  ----------------------------------------------------------------------
+     |  Methods inherited from builtins.Exception:
+     |  
+     |  ____iinniitt____(self, /, *args, **kwargs)
+     |      Initialize self.  See help(type(self)) for accurate signature.
+     |  
+     |  ____nneeww____(*args, **kwargs) from builtins.type
+     |      Create and return a new object.  See help(type) for accurate signature.
+     |  
+     |  ----------------------------------------------------------------------
+     |  Methods inherited from builtins.BaseException:
+     |  
+     |  ____ddeellaattttrr____(self, name, /)
+     |      Implement delattr(self, name).
+     |  
+     |  ____ggeettaattttrriibbuuttee____(self, name, /)
+     |      Return getattr(self, name).
+     |  
+     |  ____rreedduuccee____(...)
+     |      helper for pickle
+     |  
+     |  ____rreepprr____(self, /)
+     |      Return repr(self).
+     |  
+     |  ____sseettaattttrr____(self, name, value, /)
+     |      Implement setattr(self, name, value).
+     |  
+     |  ____sseettssttaattee____(...)
+     |  
+     |  ____ssttrr____(self, /)
+     |      Return str(self).
+     |  
+     |  wwiitthh__ttrraacceebbaacckk(...)
+     |      Exception.with_traceback(tb) --
+     |      set self.__traceback__ to tb and return self.
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data descriptors inherited from builtins.BaseException:
+     |  
+     |  ____ccaauussee____
+     |      exception cause
+     |  
+     |  ____ccoonntteexxtt____
+     |      exception context
+     |  
+     |  ____ddiicctt____
+     |  
+     |  ____ssuupppprreessss__ccoonntteexxtt____
+     |  
+     |  ____ttrraacceebbaacckk____
+     |  
+     |  aarrggss
+    
+    class EErrrroorr(builtins.Exception)
+     |  Common base class for all non-exit exceptions.
+     |  
+     |  Method resolution order:
+     |      Error
+     |      builtins.Exception
+     |      builtins.BaseException
+     |      builtins.object
+     |  
+     |  Data descriptors defined here:
+     |  
+     |  ____wweeaakkrreeff____
+     |      list of weak references to the object (if defined)
+     |  
+     |  ----------------------------------------------------------------------
+     |  Methods inherited from builtins.Exception:
+     |  
+     |  ____iinniitt____(self, /, *args, **kwargs)
+     |      Initialize self.  See help(type(self)) for accurate signature.
+     |  
+     |  ____nneeww____(*args, **kwargs) from builtins.type
+     |      Create and return a new object.  See help(type) for accurate signature.
+     |  
+     |  ----------------------------------------------------------------------
+     |  Methods inherited from builtins.BaseException:
+     |  
+     |  ____ddeellaattttrr____(self, name, /)
+     |      Implement delattr(self, name).
+     |  
+     |  ____ggeettaattttrriibbuuttee____(self, name, /)
+     |      Return getattr(self, name).
+     |  
+     |  ____rreedduuccee____(...)
+     |      helper for pickle
+     |  
+     |  ____rreepprr____(self, /)
+     |      Return repr(self).
+     |  
+     |  ____sseettaattttrr____(self, name, value, /)
+     |      Implement setattr(self, name, value).
+     |  
+     |  ____sseettssttaattee____(...)
+     |  
+     |  ____ssttrr____(self, /)
+     |      Return str(self).
+     |  
+     |  wwiitthh__ttrraacceebbaacckk(...)
+     |      Exception.with_traceback(tb) --
+     |      set self.__traceback__ to tb and return self.
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data descriptors inherited from builtins.BaseException:
+     |  
+     |  ____ccaauussee____
+     |      exception cause
+     |  
+     |  ____ccoonntteexxtt____
+     |      exception context
+     |  
+     |  ____ddiicctt____
+     |  
+     |  ____ssuupppprreessss__ccoonntteexxtt____
+     |  
+     |  ____ttrraacceebbaacckk____
+     |  
+     |  aarrggss
+    
+    class EExxiisstteennttiiaallEErrrroorr(Error)
+     |  Common base class for all non-exit exceptions.
+     |  
+     |  Method resolution order:
+     |      ExistentialError
+     |      Error
+     |      builtins.Exception
+     |      builtins.BaseException
+     |      builtins.object
+     |  
+     |  Data descriptors inherited from Error:
+     |  
+     |  ____wweeaakkrreeff____
+     |      list of weak references to the object (if defined)
+     |  
+     |  ----------------------------------------------------------------------
+     |  Methods inherited from builtins.Exception:
+     |  
+     |  ____iinniitt____(self, /, *args, **kwargs)
+     |      Initialize self.  See help(type(self)) for accurate signature.
+     |  
+     |  ____nneeww____(*args, **kwargs) from builtins.type
+     |      Create and return a new object.  See help(type) for accurate signature.
+     |  
+     |  ----------------------------------------------------------------------
+     |  Methods inherited from builtins.BaseException:
+     |  
+     |  ____ddeellaattttrr____(self, name, /)
+     |      Implement delattr(self, name).
+     |  
+     |  ____ggeettaattttrriibbuuttee____(self, name, /)
+     |      Return getattr(self, name).
+     |  
+     |  ____rreedduuccee____(...)
+     |      helper for pickle
+     |  
+     |  ____rreepprr____(self, /)
+     |      Return repr(self).
+     |  
+     |  ____sseettaattttrr____(self, name, value, /)
+     |      Implement setattr(self, name, value).
+     |  
+     |  ____sseettssttaattee____(...)
+     |  
+     |  ____ssttrr____(self, /)
+     |      Return str(self).
+     |  
+     |  wwiitthh__ttrraacceebbaacckk(...)
+     |      Exception.with_traceback(tb) --
+     |      set self.__traceback__ to tb and return self.
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data descriptors inherited from builtins.BaseException:
+     |  
+     |  ____ccaauussee____
+     |      exception cause
+     |  
+     |  ____ccoonntteexxtt____
+     |      exception context
+     |  
+     |  ____ddiicctt____
+     |  
+     |  ____ssuupppprreessss__ccoonntteexxtt____
+     |  
+     |  ____ttrraacceebbaacckk____
+     |  
+     |  aarrggss
+    
+    class IInntteerrnnaallEErrrroorr(Error)
+     |  Common base class for all non-exit exceptions.
+     |  
+     |  Method resolution order:
+     |      InternalError
+     |      Error
+     |      builtins.Exception
+     |      builtins.BaseException
+     |      builtins.object
+     |  
+     |  Data descriptors inherited from Error:
+     |  
+     |  ____wweeaakkrreeff____
+     |      list of weak references to the object (if defined)
+     |  
+     |  ----------------------------------------------------------------------
+     |  Methods inherited from builtins.Exception:
+     |  
+     |  ____iinniitt____(self, /, *args, **kwargs)
+     |      Initialize self.  See help(type(self)) for accurate signature.
+     |  
+     |  ____nneeww____(*args, **kwargs) from builtins.type
+     |      Create and return a new object.  See help(type) for accurate signature.
+     |  
+     |  ----------------------------------------------------------------------
+     |  Methods inherited from builtins.BaseException:
+     |  
+     |  ____ddeellaattttrr____(self, name, /)
+     |      Implement delattr(self, name).
+     |  
+     |  ____ggeettaattttrriibbuuttee____(self, name, /)
+     |      Return getattr(self, name).
+     |  
+     |  ____rreedduuccee____(...)
+     |      helper for pickle
+     |  
+     |  ____rreepprr____(self, /)
+     |      Return repr(self).
+     |  
+     |  ____sseettaattttrr____(self, name, value, /)
+     |      Implement setattr(self, name, value).
+     |  
+     |  ____sseettssttaattee____(...)
+     |  
+     |  ____ssttrr____(self, /)
+     |      Return str(self).
+     |  
+     |  wwiitthh__ttrraacceebbaacckk(...)
+     |      Exception.with_traceback(tb) --
+     |      set self.__traceback__ to tb and return self.
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data descriptors inherited from builtins.BaseException:
+     |  
+     |  ____ccaauussee____
+     |      exception cause
+     |  
+     |  ____ccoonntteexxtt____
+     |      exception context
+     |  
+     |  ____ddiicctt____
+     |  
+     |  ____ssuupppprreessss__ccoonntteexxtt____
+     |  
+     |  ____ttrraacceebbaacckk____
+     |  
+     |  aarrggss
+    
+    class MMeessssaaggeeQQuueeuuee(builtins.object)
+     |  System V message queue object
+     |  
+     |  Methods defined here:
+     |  
+     |  ____iinniitt____(self, /, *args, **kwargs)
+     |      Initialize self.  See help(type(self)) for accurate signature.
+     |  
+     |  ____nneeww____(*args, **kwargs) from builtins.type
+     |      Create and return a new object.  See help(type) for accurate signature.
+     |  
+     |  ____rreepprr____(self, /)
+     |      Return repr(self).
+     |  
+     |  ____ssttrr____(self, /)
+     |      Return str(self).
+     |  
+     |  rreecceeiivvee(...)
+     |      Receive a message from the queue
+     |  
+     |  rreemmoovvee(...)
+     |      Removes (deletes) the queue from the system
+     |  
+     |  sseenndd(...)
+     |      Place a message on the queue
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data descriptors defined here:
+     |  
+     |  ccggiidd
+     |      The GID of the queue's creator. Read only.
+     |  
+     |  ccuuiidd
+     |      The UID of the queue's creator. Read only.
+     |  
+     |  ccuurrrreenntt__mmeessssaaggeess
+     |      The number of messages currently in the queue
+     |  
+     |  ggiidd
+     |      The queue's GID.
+     |  
+     |  iidd
+     |      Message queue id
+     |  
+     |  kkeeyy
+     |      The key passed to the constructor.
+     |  
+     |  llaasstt__cchhaannggee__ttiimmee
+     |      A Unix timestamp representing the last time the queue was changed.
+     |  
+     |  llaasstt__rreecceeiivvee__ppiidd
+     |      The id of the last process which received from the queue
+     |  
+     |  llaasstt__rreecceeiivvee__ttiimmee
+     |      A Unix timestamp representing the last time a message was received.
+     |  
+     |  llaasstt__sseenndd__ppiidd
+     |      The id of the last process which sent via the queue
+     |  
+     |  llaasstt__sseenndd__ttiimmee
+     |      A Unix timestamp representing the last time a message was sent.
+     |  
+     |  mmaaxx__ssiizzee
+     |      The maximum size of the queue (in bytes). Read-write if you have sufficient privileges.
+     |  
+     |  mmooddee
+     |      Permissions
+     |  
+     |  uuiidd
+     |      The queue's UID.
+    
+    class NNoottAAttttaacchheeddEErrrroorr(Error)
+     |  Common base class for all non-exit exceptions.
+     |  
+     |  Method resolution order:
+     |      NotAttachedError
+     |      Error
+     |      builtins.Exception
+     |      builtins.BaseException
+     |      builtins.object
+     |  
+     |  Data descriptors inherited from Error:
+     |  
+     |  ____wweeaakkrreeff____
+     |      list of weak references to the object (if defined)
+     |  
+     |  ----------------------------------------------------------------------
+     |  Methods inherited from builtins.Exception:
+     |  
+     |  ____iinniitt____(self, /, *args, **kwargs)
+     |      Initialize self.  See help(type(self)) for accurate signature.
+     |  
+     |  ____nneeww____(*args, **kwargs) from builtins.type
+     |      Create and return a new object.  See help(type) for accurate signature.
+     |  
+     |  ----------------------------------------------------------------------
+     |  Methods inherited from builtins.BaseException:
+     |  
+     |  ____ddeellaattttrr____(self, name, /)
+     |      Implement delattr(self, name).
+     |  
+     |  ____ggeettaattttrriibbuuttee____(self, name, /)
+     |      Return getattr(self, name).
+     |  
+     |  ____rreedduuccee____(...)
+     |      helper for pickle
+     |  
+     |  ____rreepprr____(self, /)
+     |      Return repr(self).
+     |  
+     |  ____sseettaattttrr____(self, name, value, /)
+     |      Implement setattr(self, name, value).
+     |  
+     |  ____sseettssttaattee____(...)
+     |  
+     |  ____ssttrr____(self, /)
+     |      Return str(self).
+     |  
+     |  wwiitthh__ttrraacceebbaacckk(...)
+     |      Exception.with_traceback(tb) --
+     |      set self.__traceback__ to tb and return self.
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data descriptors inherited from builtins.BaseException:
+     |  
+     |  ____ccaauussee____
+     |      exception cause
+     |  
+     |  ____ccoonntteexxtt____
+     |      exception context
+     |  
+     |  ____ddiicctt____
+     |  
+     |  ____ssuupppprreessss__ccoonntteexxtt____
+     |  
+     |  ____ttrraacceebbaacckk____
+     |  
+     |  aarrggss
+    
+    class PPeerrmmiissssiioonnssEErrrroorr(Error)
+     |  Common base class for all non-exit exceptions.
+     |  
+     |  Method resolution order:
+     |      PermissionsError
+     |      Error
+     |      builtins.Exception
+     |      builtins.BaseException
+     |      builtins.object
+     |  
+     |  Data descriptors inherited from Error:
+     |  
+     |  ____wweeaakkrreeff____
+     |      list of weak references to the object (if defined)
+     |  
+     |  ----------------------------------------------------------------------
+     |  Methods inherited from builtins.Exception:
+     |  
+     |  ____iinniitt____(self, /, *args, **kwargs)
+     |      Initialize self.  See help(type(self)) for accurate signature.
+     |  
+     |  ____nneeww____(*args, **kwargs) from builtins.type
+     |      Create and return a new object.  See help(type) for accurate signature.
+     |  
+     |  ----------------------------------------------------------------------
+     |  Methods inherited from builtins.BaseException:
+     |  
+     |  ____ddeellaattttrr____(self, name, /)
+     |      Implement delattr(self, name).
+     |  
+     |  ____ggeettaattttrriibbuuttee____(self, name, /)
+     |      Return getattr(self, name).
+     |  
+     |  ____rreedduuccee____(...)
+     |      helper for pickle
+     |  
+     |  ____rreepprr____(self, /)
+     |      Return repr(self).
+     |  
+     |  ____sseettaattttrr____(self, name, value, /)
+     |      Implement setattr(self, name, value).
+     |  
+     |  ____sseettssttaattee____(...)
+     |  
+     |  ____ssttrr____(self, /)
+     |      Return str(self).
+     |  
+     |  wwiitthh__ttrraacceebbaacckk(...)
+     |      Exception.with_traceback(tb) --
+     |      set self.__traceback__ to tb and return self.
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data descriptors inherited from builtins.BaseException:
+     |  
+     |  ____ccaauussee____
+     |      exception cause
+     |  
+     |  ____ccoonntteexxtt____
+     |      exception context
+     |  
+     |  ____ddiicctt____
+     |  
+     |  ____ssuupppprreessss__ccoonntteexxtt____
+     |  
+     |  ____ttrraacceebbaacckk____
+     |  
+     |  aarrggss
+    
+    class SSeemmaapphhoorree(builtins.object)
+     |  System V semaphore object
+     |  
+     |  Methods defined here:
+     |  
+     |  PP(...)
+     |      Acquire (decrement) the semaphore, waiting if necessary
+     |  
+     |  VV(...)
+     |      Release (increment) the semaphore
+     |  
+     |  ZZ(...)
+     |      Waits until zee zemaphore is zero
+     |  
+     |  ____eenntteerr____(...)
+     |  
+     |  ____eexxiitt____(...)
+     |  
+     |  ____iinniitt____(self, /, *args, **kwargs)
+     |      Initialize self.  See help(type(self)) for accurate signature.
+     |  
+     |  ____nneeww____(*args, **kwargs) from builtins.type
+     |      Create and return a new object.  See help(type) for accurate signature.
+     |  
+     |  ____rreepprr____(self, /)
+     |      Return repr(self).
+     |  
+     |  ____ssttrr____(self, /)
+     |      Return str(self).
+     |  
+     |  aaccqquuiirree(...)
+     |      Acquire (decrement) the semaphore, waiting if necessary
+     |  
+     |  rreelleeaassee(...)
+     |      Release (increment) the semaphore
+     |  
+     |  rreemmoovvee(...)
+     |      Removes (deletes) the semaphore from the system
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data descriptors defined here:
+     |  
+     |  bblloocckk
+     |      When True (the default), calls to acquire/release/P/V/Z will wait (block) if the semaphore is busy
+     |  
+     |  ccggiidd
+     |      The semaphore creator's GID. Read only.
+     |  
+     |  ccuuiidd
+     |      The semaphore creator's UID. Read only.
+     |  
+     |  ggiidd
+     |      The semaphore's GID
+     |  
+     |  iidd
+     |      The id assigned by the system
+     |  
+     |  kkeeyy
+     |      The key passed to the constructor
+     |  
+     |  llaasstt__ppiidd
+     |      The id of the last process to call acquire()/release()/Z() on this semaphore. Read only.
+     |  
+     |  mmooddee
+     |      Permissions
+     |  
+     |  oo__ttiimmee
+     |      The last time semop (acquire/release/P/V/Z) was called on this semaphore. Initialized to zero. Read only.
+     |  
+     |  uuiidd
+     |      The semaphore's UID
+     |  
+     |  uunnddoo
+     |      When True, acquire/release operations will be undone when the process exits. Non-portable.
+     |  
+     |  vvaalluuee
+     |      The semaphore's current value
+     |  
+     |  wwaaiittiinngg__ffoorr__nnoonnzzeerroo
+     |      The number of processes waiting for the semaphore to become non-zero. Read only.
+     |  
+     |  wwaaiittiinngg__ffoorr__zzeerroo
+     |      The number of processes waiting for the semaphore to become zero. Read only.
+    
+    class SShhaarreeddMMeemmoorryy(builtins.object)
+     |  System V shared memory object
+     |  
+     |  Methods defined here:
+     |  
+     |  ____iinniitt____(self, /, *args, **kwargs)
+     |      Initialize self.  See help(type(self)) for accurate signature.
+     |  
+     |  ____nneeww____(*args, **kwargs) from builtins.type
+     |      Create and return a new object.  See help(type) for accurate signature.
+     |  
+     |  ____rreepprr____(self, /)
+     |      Return repr(self).
+     |  
+     |  ____ssttrr____(self, /)
+     |      Return str(self).
+     |  
+     |  aattttaacchh(...)
+     |      Attaches the shared memory
+     |  
+     |  ddeettaacchh(...)
+     |      Detaches the shared memory
+     |  
+     |  rreeaadd(...)
+     |      Read n bytes from the shared memory at the given offset into a Python string
+     |  
+     |  rreemmoovvee(...)
+     |      Removes (deletes) the shared memory from the system
+     |  
+     |  wwrriittee(...)
+     |      Write the string to the shared memory at the offset given
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data descriptors defined here:
+     |  
+     |  aaddddrreessss
+     |      The memory address of the segment. Read only.
+     |  
+     |  aattttaacchheedd
+     |      True if the segment is attached. Read only.
+     |  
+     |  ccggiidd
+     |      The GID of the segment's creator. Read only.
+     |  
+     |  ccrreeaattoorr__ppiidd
+     |      The process id of the creator. Read only.
+     |  
+     |  ccuuiidd
+     |      The UID of the segment's creator. Read only.
+     |  
+     |  ggiidd
+     |      The segment's GID.
+     |  
+     |  iidd
+     |      The id assigned by the system
+     |  
+     |  kkeeyy
+     |      The key passed to the constructor. Read only.
+     |  
+     |  llaasstt__aattttaacchh__ttiimmee
+     |      The most recent time this segment was attached. Read only.
+     |  
+     |  llaasstt__cchhaannggee__ttiimmee
+     |      The time of the most recent change to this segment's uid, gid, mode, or the time the segment was removed. Read only.
+     |  
+     |  llaasstt__ddeettaacchh__ttiimmee
+     |      The most recent time this segment was detached. Read only.
+     |  
+     |  llaasstt__ppiidd
+     |      The id of the process that performed the most recent attach or detach. Read only.
+     |  
+     |  mmooddee
+     |      Permissions.
+     |  
+     |  nnuummbbeerr__aattttaacchheedd
+     |      The current number of attached processes. Read only.
+     |  
+     |  ssiizzee
+     |      The size of the segment in bytes. Read only.
+     |  
+     |  uuiidd
+     |      The segment's UID.
+
+FFUUNNCCTTIIOONNSS
+    aattttaacchh(...)
+        Attaches the memory identified by the id and returns a new SharedMemory object.
+    
+    ffttookk(...)
+        Calls ftok(). Not recommended; see sysv_ipc documentation.
+    
+    rreemmoovvee__mmeessssaaggee__qquueeuuee(...)
+        Remove the message queue identified by id
+    
+    rreemmoovvee__sseemmaapphhoorree(...)
+        Remove (delete) the semaphore identified by id
+    
+    rreemmoovvee__sshhaarreedd__mmeemmoorryy(...)
+        Remove shared memory identified by id
+
+DDAATTAA
+    IIPPCC__CCRREEAATT = 512
+    IIPPCC__CCRREEXX = 1536
+    IIPPCC__EEXXCCLL = 1024
+    IIPPCC__PPRRIIVVAATTEE = 0
+    KKEEYY__MMAAXX = 9223372036854775807
+    KKEEYY__MMIINN = -9223372036854775808
+    PPAAGGEE__SSIIZZEE = 4096
+    SSEEMMAAPPHHOORREE__TTIIMMEEOOUUTT__SSUUPPPPOORRTTEEDD = True
+    SSEEMMAAPPHHOORREE__VVAALLUUEE__MMAAXX = 32767
+    SSHHMM__HHUUGGEETTLLBB = 2048
+    SSHHMM__NNOORREESSEERRVVEE = 4096
+    SSHHMM__RRDDOONNLLYY = 4096
+    SSHHMM__RREEMMAAPP = 16384
+    SSHHMM__RRNNDD = 8192
+    VVEERRSSIIOONN = '1.1.0'
+    ____ccooppyyrriigghhtt____ = 'Copyright 2018 Philip Semanchuk'
+    ____lliicceennssee____ = 'BSD'
+
+VVEERRSSIIOONN
+    1.1.0
+
+AAUUTTHHOORR
+    Philip Semanchuk
+
+FFIILLEE
+    /home/hao/.local/lib/python3.6/site-packages/sysv_ipc.cpython-36m-x86_64-linux-gnu.so
+

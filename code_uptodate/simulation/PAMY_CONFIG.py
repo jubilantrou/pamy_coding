@@ -1,0 +1,228 @@
+'''
+This script is the configuration of Pamy
+'''
+import numpy as np
+from RealRobot import Robot
+from RealRobotGeometry import RobotGeometry
+import pickle5 as pickle
+# %%
+'''
+The initial posture of pamy, all the value is absolute value
+in angular space in rad.
+'''
+GLOBAL_INITIAL = np.array([0.000000, 0.514884, 0.513349, 0.0000])
+# %%
+def FulfillZeros( a ):
+    b = np.zeros(  [len(a), len(max(a, key = lambda x: len(x)))]  )
+    for i,j in enumerate(a):
+        b[i][0:len(j)] = j
+    return b
+# %%
+'''
+All the necessary parameters that used to built the model and
+inverse model of Pamy.
+'''
+dof_list = [0, 1, 2, 3]
+
+# ----------------------------------------------------------------------------------------------------------------
+'''
+identification data: 01.06.2021
+identification mode: ff
+frequency range:     [0, 10]
+'''
+# inverse_model_num = [[ -1.603053083740808,  4.247255623123213,  -3.894718257376192, 1.248397916673204],
+#                      [ -39.4562899165285, 107.6338556336952,   -101.4865793303678, 33.2833280994107],
+#                      [-0.5340642923467604, 0.9405453623185243, -0.4103846610378554                   ],
+#                      [  1.139061120808877, -1.134002042583525                                        ]]
+# inverse_model_num = FulfillZeros( inverse_model_num ) * 1e5
+
+# inverse_model_den = [[1.000000000000000, -2.397342550890251, 2.136262918863130, -0.683005338583667],
+#                      [1.000000000000000, -1.972088694237271, 1.604586816873790, -0.428252150060600],
+#                      [1.000000000000000, -1.702657081211864, 0.823186864989291                    ],
+#                      [1.000000000000000, -0.825587854345462                                       ]]
+# inverse_model_den = FulfillZeros( inverse_model_den )
+
+# ndelay_list = np.array([2, 2, 3, 1])
+
+# order_num_list = np.array([3, 3, 2, 1])
+# order_den_list = np.array([3, 3, 2, 1])
+
+
+# model_num = [[ -0.62380966054252,    1.49548544287500,  -1.33262144624559,    0.42606532841061],
+#              [-0.0253445015260062, 0.0499816049205160, -0.0406674530288672, 0.0108538372707263],
+#              [ -1.87243373940214,    3.18811256549306,  -1.54136285983862                     ],
+#              [ 0.877916014980719,  -0.724796799103451                                         ]]
+# model_num = FulfillZeros( model_num ) * 1e-5
+
+# model_den = [[1.000000000000000, -2.649479088497819, 2.429562874042614, -0.778762680621906],
+#              [1.000000000000000, -2.727926418358119, 2.572126764707656, -0.843549359806079],
+#              [1.000000000000000, -1.761108869843411, 0.768418085460389                    ],
+#              [1.000000000000000, -0.995558554204924                                       ]]
+# model_den = FulfillZeros( model_den )   
+
+# model_num_order   = [3, 3, 2, 1]
+# model_den_order   = [3, 3, 2, 1]
+# model_ndelay_list = [2, 2, 3, 1]
+
+# anchor_ago_list = np.array([17500, 18500, 16000, 15000])
+# anchor_ant_list = np.array([17500, 18500, 16000, 15000])
+# ----------------------------------------------------------------------------------------------------------------
+
+
+# ----------------------------------------------------------------------------------------------------------------
+'''
+identification data: 10.10.2022
+identification mode: ff
+frequency range:     [0, 4]
+'''
+inverse_model_num = [[-2.350995487550098, 6.644679608595308, -6.280551126507012, 1.986059415820528],
+                     [-24.62326418771043, 70.24241096821765, -66.78541829591975, 21.16608122268048],
+                     [-1.211340591489780, 3.525020609214648, -3.436926835229279, 1.122998695513753],
+                     [  1.139061120808877, -1.134002042583525                                     ]]
+inverse_model_num = FulfillZeros(inverse_model_num) * 1e5
+
+inverse_model_den = [[1.000000000000000, -1.800268767595627, 0.993209275691485, -0.171528458110958],
+                     [1.000000000000000, -1.347801996829548, 0.364428171765932, -0.001447535556446],
+                     [1.000000000000000, -2.222189096460812, 1.554090039489951, -0.320764252850695],
+                     [1.000000000000000, -0.825587854345462                                       ]]
+inverse_model_den = FulfillZeros(inverse_model_den)
+
+ndelay_list = np.array([0, 0, 0, 1])
+order_num_list = np.array([3, 3, 3, 1])
+order_den_list = np.array([3, 3, 3, 1])
+
+model_num = [[-0.268873573843934, 0.385131637331576, -0.125365716011132],
+             [-0.0256716800018761, 0.0251562582754755, -0.0001010131728973],
+             [-0.521835529387435, 0.967644660616160, -0.455002821472975],
+             [0.877916014980719, -0.724796799103451]]
+model_num = FulfillZeros(model_num) * 1e-5
+
+model_den = [[1.000000000000000, -2.826325972883738, 2.671443292752461, -0.844773810216940],
+             [1.000000000000000, -2.852684779432124, 2.712289393753596, -0.859596886153078],
+             [1.000000000000000, -2.910016087943825, 2.837291889147658, -0.927070968646912],
+             [1.000000000000000, -0.995558554204924]]
+model_den = FulfillZeros(model_den)   
+
+model_ndelay_list = [0, 0, 0, 1]
+model_num_order   = [2, 2, 2, 1]
+model_den_order   = [3, 3, 3, 1]
+
+anchor_ago_list = np.array([17500, 20700, 16000, 15000])
+anchor_ant_list = np.array([17500, 16300, 16000, 15000])
+# ----------------------------------------------------------------------------------------------------------------
+
+# ----------------------------------------------------------------------------------------------------------------
+'''
+identification data: 20.10.2022
+identification mode: fb
+frequency range:     [0, 4]
+'''
+# inverse_model_num = [[0.10563726446696005, -0.19816335192606250, 0.09330799511687839],
+#                      [  0.696188563387390,   -1.327499022596144,   0.632364488636068],
+#                      [0.09469560619999285, -0.09452160729660655],
+#                      [  1.139061120808877, -1.134002042583525]]
+# inverse_model_num = FulfillZeros(inverse_model_num) * 1e2
+
+# inverse_model_den = [[1.000000000000000, -1.521654172804622, 0.727307919705600],
+#                      [1.000000000000000, -0.368462983946576, 0.000214673390016],
+#                      [1.000000000000000, -0.690319276955498],
+#                      [1.000000000000000, -0.825587854345462]]
+# inverse_model_den = FulfillZeros(inverse_model_den)
+
+# ndelay_list = np.array([0, 0, 3, 1])
+# order_num_list = np.array([2, 2, 1, 1])
+# order_den_list = np.array([2, 2, 1, 1])
+
+# model_num = [[0.094663564514468, -0.144045207956000, 0.068849560178935],
+#              [0.009079732016178, -0.000005298412018],
+#              [0.105601520506458, -0.072898765281419],
+#              [0.877916014980719, -0.724796799103451]]
+# model_num = FulfillZeros(model_num)
+
+# model_den = [[1.000000000000000, -1.875884924945606, 0.883286741546229],
+#              [1.000000000000000, -1.906809580635794, 0.908323580552979],
+#              [1.000000000000000, -0.998162545123595],
+#              [1.000000000000000, -0.995558554204924]]
+# model_den = FulfillZeros(model_den)   
+
+# model_ndelay_list = [0, 0, 3, 1]
+# model_num_order   = [2, 1, 1, 1]
+# model_den_order   = [2, 2, 1, 1]
+
+# anchor_ago_list = np.array([17500, 20700, 16000, 15000])
+# anchor_ant_list = np.array([17500, 16300, 16000, 15000])
+# ----------------------------------------------------------------------------------------------------------------
+
+
+
+ago_max_list = np.array([22000, 25000, 22000, 22000])
+ant_max_list = np.array([22000, 23000, 22000, 22000])
+
+ago_min_list = [13000, 13500, 10000, 8000]
+ant_min_list = [13000, 14500, 10000, 8000]
+
+pressure_max = ago_max_list - anchor_ago_list
+pressure_min = ago_min_list - anchor_ago_list
+
+strategy_list = np.array([1, 1, 1, 1])
+
+pid_list = [[-3.505924158687806e+04, -3.484022215671791e+05/5, -5.665386729745434e+02],
+            [-8.228984656729296e+04, -1.304087541343074e+04/2, -4.841489121599795e+02],
+            [-36752.24956301624,     -246064.5612272051/10,    -531.2866756516057],
+            [3.422187330173758e+04,  1.673663594798479e+05/10, 73.238165769446297]]
+pid_list = FulfillZeros( pid_list )
+
+delta_d_list   = np.array([1e-9, 1e-11, 1e-8, 1e-9]) 
+delta_y_list   = np.array([1e-3, 1e-3, 1e-3, 1e-3])
+delta_w_list   = np.array([1e-9, 1e-11, 1e-8, 1e-9])
+delta_ini_list = np.array([1e-7, 1e-7, 1e-7, 1e-7])
+
+weight_list = [(0.1, 1.0),
+               (1.0, 1.0),
+               (0.1, 1.0),
+               (1.0, 1.0)]
+# %%
+'''
+Build the robot model
+'''
+def build_pamy(frontend=None):
+    Pamy = Robot(frontend, dof_list, model_num, model_den,
+                 model_num_order, model_den_order, model_ndelay_list,
+                 inverse_model_num, inverse_model_den, order_num_list, order_den_list,
+                 ndelay_list, anchor_ago_list, anchor_ant_list, strategy_list, pid_list,
+                 delta_d_list, delta_y_list, delta_w_list, delta_ini_list,
+                 pressure_min, pressure_max, weight_list)
+    return Pamy
+# %%
+def build_geometry():
+    Pamy_geometry = RobotGeometry(initial_posture=GLOBAL_INITIAL)
+    return Pamy_geometry
+# %%
+def get_trajectory(index, mode='train'):
+    path_file = "/home/hao/Desktop/Learning/data/online_optimization" + '/' + mode + '/' + str(index)
+    file = open(path_file, 'rb')
+    t = pickle.load(file)
+    p = pickle.load(file)
+    file.close()
+    return (t, p)
+# %%
+# def get_recorded_ball(Geometry=None):
+#     path_of_file = "/home/hao/Desktop/Learning/data/" + 'BallsData' + '.txt'
+#     file = open(path_of_file, 'rb')
+#     time_list = pickle.load(file)
+#     position_list = pickle.load(file)
+#     velocity_list = pickle.load(file)
+#     file.close()
+#     position_mean = np.mean(position_list, axis=0)
+#     # offset angles of upright posture
+#     offset = np.array( [2.94397627, -0.078539855235, -0.06333859293225] )
+#     # angles of initial posture
+#     angle_initial_ref = np.array( [2.94397627, -0.605516948, -0.5890489142699] )
+#     # anchor angles
+#     angle_anchor_ref = np.array( [2.94397627, -1.452987321865, -0.87660612618] )
+#     angle_initial = angle_initial_ref - offset
+#     angle_anchor = angle_anchor_ref - offset
+#     (_, position_anchor) = Geometry.AngleToEnd(angle_anchor, frame='Cartesian')
+#     position_error = position_anchor - position_mean
+#     position_list = position_list + position_error  # have been calibrated
+#     return (time_list, position_list)

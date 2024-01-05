@@ -27,7 +27,6 @@ class Robot:
         inverse_model_num, inverse_model_den, ndelay_list: parameters that describe the discrete linear
                                                            inverse model of each dof
         ''' 
-
         # connect to the backend
         self.frontend = frontend
         # all dofs
@@ -71,16 +70,17 @@ class Robot:
                                self.order_num_list[dof], order_den_list[dof], ndelay_list[dof], 
                                self.pid_list[dof, :], self.strategy_list[dof])
             self.Joint_list.append( Joint_temp )
-        
+        # frequency and period
         frequency_backend = 500
         frequency_frontend = 50
         period_backend = 1.0 / frequency_backend  # period of backend
         period_frontend = 1.0 / frequency_frontend  # period of frontend
         self.step_size = 1 / frequency_frontend
         self.iterations_per_command = int( period_frontend / period_backend )  # sychronize the frontend and the backend
+        # pid for tracking
         '''
         the original one
-        # '''
+        '''
         # self.pid_for_tracking = np.array([[-13000, 0, -300],
         #                                   [ 80000, 0, 300],
         #                                   [ -5000, -8000, -100],
@@ -89,10 +89,10 @@ class Robot:
                                           [-30000, 0, -300],
                                           [-5000, -8000, -100],
                                           [3.422187330173758e+04, 1.673663594798479e+05 / 10, 73.238165769446297]])
+        # NN
         self.A_list = A_list 
         self.A_bias = A_bias
         self.cnn_model_list = cnn_model_list
-
         # length should be long enough
         self.trajectory_temp = np.zeros((4, 1000))
         self.trajectory_history = []
@@ -395,8 +395,7 @@ class Robot:
         #     print("the {}. ago/ant pressure is: {:.2f}/{:.2f}".format(dof, pressures[dof, 0], pressures[dof, 1]) )
 
     def AngleInitialization(self, angle, tolerance_list=[0.1,0.2,0.1,1.0], 
-                            frequency_frontend=100, frequency_backend=500):
-        
+                            frequency_frontend=100, frequency_backend=500):        
         pid = np.copy( self.pid_list )
         tolerance_list = np.array(tolerance_list)
         theta = self.frontend.latest().get_positions()

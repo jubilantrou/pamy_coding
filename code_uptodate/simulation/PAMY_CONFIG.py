@@ -1,14 +1,17 @@
 '''
-This script is the configuration of Pamy
+This script is the configuration of Pamy.
+initial posture: GLOBAL_INITIAL
+SI: identification data
 '''
+#%%
 import numpy as np
 from RealRobot import Robot
 from RealRobotGeometry import RobotGeometry
 import pickle5 as pickle
 # %%
 '''
-The initial posture of pamy, all the value is absolute value
-in angular space in rad.
+The initial posture of pamy.
+All the values are absolute values in angular space in rad.
 '''
 GLOBAL_INITIAL = np.array([0.000000, 0.514884, 0.513349, 0.0000])
 # %%
@@ -70,6 +73,7 @@ frequency range:     [0, 10]
 
 # ----------------------------------------------------------------------------------------------------------------
 '''
+!!!!! Last Used Parameters !!!!!
 identification data: 10.10.2022
 identification mode: ff
 frequency range:     [0, 4]
@@ -115,6 +119,49 @@ anchor_ant_list = np.array([17500, 16300, 16000, 15000])
 identification data: 20.10.2022
 identification mode: fb
 frequency range:     [0, 4]
+'''
+# inverse_model_num = [[0.10563726446696005, -0.19816335192606250, 0.09330799511687839],
+#                      [  0.696188563387390,   -1.327499022596144,   0.632364488636068],
+#                      [0.09469560619999285, -0.09452160729660655],
+#                      [  1.139061120808877, -1.134002042583525]]
+# inverse_model_num = FulfillZeros(inverse_model_num) * 1e2
+
+# inverse_model_den = [[1.000000000000000, -1.521654172804622, 0.727307919705600],
+#                      [1.000000000000000, -0.368462983946576, 0.000214673390016],
+#                      [1.000000000000000, -0.690319276955498],
+#                      [1.000000000000000, -0.825587854345462]]
+# inverse_model_den = FulfillZeros(inverse_model_den)
+
+# ndelay_list = np.array([0, 0, 3, 1])
+# order_num_list = np.array([2, 2, 1, 1])
+# order_den_list = np.array([2, 2, 1, 1])
+
+# model_num = [[0.094663564514468, -0.144045207956000, 0.068849560178935],
+#              [0.009079732016178, -0.000005298412018],
+#              [0.105601520506458, -0.072898765281419],
+#              [0.877916014980719, -0.724796799103451]]
+# model_num = FulfillZeros(model_num)
+
+# model_den = [[1.000000000000000, -1.875884924945606, 0.883286741546229],
+#              [1.000000000000000, -1.906809580635794, 0.908323580552979],
+#              [1.000000000000000, -0.998162545123595],
+#              [1.000000000000000, -0.995558554204924]]
+# model_den = FulfillZeros(model_den)   
+
+# model_ndelay_list = [0, 0, 3, 1]
+# model_num_order   = [2, 1, 1, 1]
+# model_den_order   = [2, 2, 1, 1]
+
+# anchor_ago_list = np.array([17500, 20700, 16000, 15000])
+# anchor_ant_list = np.array([17500, 16300, 16000, 15000])
+# ----------------------------------------------------------------------------------------------------------------
+
+# ----------------------------------------------------------------------------------------------------------------
+'''
+identification data: 04.12.2023
+identification mode: ff
+frequency range:     [0, 10]
+obj:                 sim
 '''
 # inverse_model_num = [[0.10563726446696005, -0.19816335192606250, 0.09330799511687839],
 #                      [  0.696188563387390,   -1.327499022596144,   0.632364488636068],

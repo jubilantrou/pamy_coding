@@ -50,10 +50,10 @@ RG = RobotGeometry()
 # mode_name         = 'ff'
 # step_size_version = 'constant'
 coupling          = 'yes'
-nr_epoch          = 40
-nr_channel        = 3
-h                 = 50
-nr_iteration      = 20
+nr_epoch          = 10
+nr_channel        = 1
+h                 = 100
+nr_iteration      = 10
 # version           = 'random'
 # train_index       = [17, 62, 1, 41, 37, 32, 67, 15, 70, 64, 23, 28, 66, 33, 35, 34, 54, 58, 38, 56, 47, 55, 11, 59, 21, 4, 48, 65, 14, 52]
 # test_index        = [30, 39] #, 50, 7, 45, 53, 16, 57, 68, 61, 60, 6, 13]
@@ -78,7 +78,7 @@ nr_iteration      = 20
 width      = 3
 ds          = 1
 height       = int((2*h)/ds)+1
-filter_size = 11
+filter_size = 21
 # learning_rate = [1e-4, 1e-5, 3e-5]
 # weight_decay = 0.00
 # %% functions
@@ -123,6 +123,8 @@ def get_grads_list(dataset, cnn_list):
     dof = 0
     for cnn in cnn_list:
         for name, param in cnn.named_parameters():
+            if param.grad is None:
+                break
             param.grad.zero_()
         flag = True
         for data in dataset:
@@ -341,16 +343,16 @@ def set_parameters(W_list, cnn_list, idx_list, shape_list):
             i += 1
     return cnn_list
 
-def get_prediction(cnn_list, y):
+def get_prediction(cnn_list, y, denorm):
     dataset = get_dataset(y, batch_size=y.shape[1])
     u = np.zeros(y.shape)
     for dof in range(3):
         cnn = cnn_list[dof]
         cnn.eval()
         try:
-            u[dof, :] = cnn(dataset[0]).cpu().detach().numpy().flatten() * sigma[dof]
+            u[dof, :] = cnn(dataset[0]).cpu().detach().numpy().flatten() * denorm[dof]
         except:
-            u[dof, :] = cnn(dataset[0].float()).cpu().detach().numpy().flatten() * sigma[dof]
+            u[dof, :] = cnn(dataset[0].float()).cpu().detach().numpy().flatten() * denorm[dof]
     return u
 # %% initilization
 # Pamy.AngleInitialization(PAMY_CONFIG.GLOBAL_INITIAL)
@@ -366,8 +368,8 @@ idx_list.append(idx)
 
 def weight_init(l):
     if isinstance(l,nn.Conv2d) or isinstance(l,nn.Linear):
-        nn.init.xavier_normal(l.weight)
-        nn.init.xavier_normal(l.bias)
+        nn.init.xavier_normal_(l.weight)
+        nn.init.normal_(l.bias)
 
 for dof in range(3):
     cnn = CNN(filter_size=filter_size, width=width, height=height, channel_in=nr_channel)
@@ -401,6 +403,9 @@ print(idx_list)
 #     Pamy_test.append(Pamy)
 # %% Learning
 index_used = []
+
+(t, angle) = get_random()
+print(angle/math.pi*180)
 
 for i_epoch in range(nr_epoch):
     # root_epoch = root_learning + '/' + str(i_epoch)
@@ -465,8 +470,8 @@ for i_epoch in range(nr_epoch):
         index = i_it
 
         # Pamy   = PAMY_CONFIG.build_pamy(frontend=frontend)
-        (t, angle) = get_random()
-        (p, v, a, j, theta, t_stamp) = RG.PathPlanning(angle=PAMY_CONFIG.GLOBAL_INITIAL, T_go=t, target=angle)
+        # (t, angle) = get_random()
+        (p, v, a, j, theta, t_stamp) = RG.PathPlanning(time_point=0, angle=PAMY_CONFIG.GLOBAL_INITIAL, T_go=t, target=angle)
         theta = np.vstack((theta, np.zeros((1, theta.shape[1]))))
         theta = theta - theta[:, 0].reshape(-1, 1)
         Pamy.ImportTrajectory(theta, t_stamp)  #  import the desired trajectories and the time stamp
@@ -478,51 +483,67 @@ for i_epoch in range(nr_epoch):
         # Pamy    = Pamy_train[train_index.index(index)]  # find the position of index in train_index
         # t_stamp = Pamy.t_stamp
 
-        u = get_prediction(cnn_list, Pamy.y_desired)
+        u = get_prediction(cnn_list, Pamy.y_desired, PAMY_CONFIG.pressure_limit)
 
         (y, ff, fb, obs_ago, obs_ant) = Pamy.online_convex_optimization(u, coupling=coupling, learning_mode='u')
         y_out = y - y[:, 0].reshape(-1, 1)
 
-        root_file = root_epoch + '/' + str(i_it) 
-        file = open(root_file, 'wb')
-        pickle.dump(t_stamp, file, -1)
-        pickle.dump(t_stamp, file, -1)
-        pickle.dump(angle_initial_read, file, -1)
-        pickle.dump(y, file, -1)
-        pickle.dump(Pamy.y_desired, file, -1)
-        pickle.dump(ff, file, -1)
-        pickle.dump(fb, file, -1)
-        pickle.dump(obs_ago, file, -1)
-        pickle.dump(obs_ant, file, -1)
-        pickle.dump(W_list, file, -1)
-        pickle.dump(index, file, -1)
-        file.close()
+        # root_file = root_epoch + '/' + str(i_it) 
+        # file = open(root_file, 'wb')
+        # pickle.dump(t_stamp, file, -1)
+        # pickle.dump(t_stamp, file, -1)
+        # pickle.dump(angle_initial_read, file, -1)
+        # pickle.dump(y, file, -1)
+        # pickle.dump(Pamy.y_desired, file, -1)
+        # pickle.dump(ff, file, -1)
+        # pickle.dump(fb, file, -1)
+        # pickle.dump(obs_ago, file, -1)
+        # pickle.dump(obs_ant, file, -1)
+        # pickle.dump(W_list, file, -1)
+        # pickle.dump(index, file, -1)
+        # file.close()
 
         print('begin {},{}. optimization'.format(i_epoch, i_it))
-        nr_round = i_epoch * len(train_index) + i_it + 1 + 5
+        # nr_round = i_epoch * len(train_index) + i_it + 1 + 5
+        W_list = [None] * 3
+        for i in range(3):    
+            W = []
+            [W.append(param.data.view(-1)) for param in cnn_list[i].parameters()]
+            W = torch.cat(W)
+            W_list[i] = W.cpu().numpy().reshape(-1, 1)
+        part3 = get_grads_list(get_dataset(Pamy.y_desired), cnn_list)
+        part2 = [Pamy.O_list[i].Bu for i in PAMY_CONFIG.dof_list]
+        part1_temp = y_out - Pamy.y_desired
+        part1 = [part1_temp[i].reshape(1,-1) for i in range(len(part1_temp))]
+        loss = [np.linalg.norm(part1_temp[i].reshape(1,-1)) for i in range(len(part1_temp))]
+        step_list = [0.2, 0.05, 1.0]
         for dof in range(3):  # update the linear model b
-            '''
-            b = b - s_k * pinv(1/t*sum(L.T * L)+alpha/t*sum(X.T * X)+epsilon*I) * L.T * (y_out - y_des)
-            '''
+            W_list[dof] = W_list[dof] - step_list[dof]*(part1[dof]@part2[dof]@part3[dof]).reshape(-1, 1)
+        #     '''
+        #     b = b - s_k * pinv(1/t*sum(L.T * L)+alpha/t*sum(X.T * X)+epsilon*I) * L.T * (y_out - y_des)
+        #     '''
 
-            [hessian, gradient, sum_1_list[dof], sum_2_list[dof], X_list] = get_newton_method(nr_round, dof, Pamy, sum_1_list, sum_2_list, y_out, alpha_list, epsilon_list, cnn_list)
-            sk                                                            = get_step_size(nr_round, dof, step_size_version=step_size_version)
-            W_list[dof]                                                   = get_update(W_list[dof], sk, hessian, gradient)
-            # W_list[dof]                                                   = get_projection(dof, W_list[dof], X_list[dof])
+        #     [hessian, gradient, sum_1_list[dof], sum_2_list[dof], X_list] = get_newton_method(nr_round, dof, Pamy, sum_1_list, sum_2_list, y_out, alpha_list, epsilon_list, cnn_list)
+        #     sk                                                            = get_step_size(nr_round, dof, step_size_version=step_size_version)
+        #     W_list[dof]                                                   = get_update(W_list[dof], sk, hessian, gradient)
+        #     # W_list[dof]                                                   = get_projection(dof, W_list[dof], X_list[dof])
         cnn_list = set_parameters(W_list, cnn_list, idx_list, shape_list)
+        print('loss:')
+        print(loss)
 
-        print('initialization')
-        Pamy.AngleInitialization(PAMY_CONFIG.GLOBAL_INITIAL)
+        print('____________')
+        print('initialization for next training')
+        # Pamy.AngleInitialization(PAMY_CONFIG.GLOBAL_INITIAL)
         Pamy.PressureInitialization()
         angle_initial_read =np.array(frontend.latest().get_positions())
     
-    index_used = [] 
-    root_model_epoch = root_model + '/' + str(i_epoch)  # save the model at each epoch
-    mkdir(root_model_epoch) 
-    for dof in range(3):
-        cnn = cnn_list[dof]
-        root_file = root_model_epoch + '/' + str(dof)
-        torch.save(cnn.state_dict(), root_file)
+    # index_used = [] 
+    # root_model_epoch = root_model + '/' + str(i_epoch)  # save the model at each epoch
+    # mkdir(root_model_epoch) 
+    # for dof in range(3):
+    #     cnn = cnn_list[dof]
+    #     root_file = root_model_epoch + '/' + str(dof)
+    #     torch.save(cnn.state_dict(), root_file)
 # %% Verify
 # verify(Pamy_train, train_index, path=root_verify, name='train', b_list=b_list)
 # verify(Pamy_test, test_index, path=root_verify, name='test', b_list=b_list)

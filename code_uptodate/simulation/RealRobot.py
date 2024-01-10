@@ -1,3 +1,6 @@
+'''
+frequency_frontend for controlling the robot
+'''
 import math
 import numpy as np
 import o80
@@ -72,7 +75,7 @@ class Robot:
             self.Joint_list.append( Joint_temp )
         # frequency and period
         frequency_backend = 500
-        frequency_frontend = 50
+        frequency_frontend = 100 # default is 50
         period_backend = 1.0 / frequency_backend  # period of backend
         period_frontend = 1.0 / frequency_frontend  # period of frontend
         self.step_size = 1 / frequency_frontend
@@ -380,19 +383,22 @@ class Robot:
             position = position.reshape(-1, len(self.dof_list)).T
             pressure_ago = pressure_ago.reshape(-1, len(self.dof_list)).T
             pressure_ant = pressure_ant.reshape(-1, len(self.dof_list)).T
-
+            
+            print('final positions:')
+            print(position[:,-1]/math.pi*180)
             return (position, fb, pressure_ago, pressure_ant)
          
     def PressureInitialization(self, times=1, duration=1):
         for _ in range(times):
             # creating a command locally. The command is *not* sent to the robot yet.
             self.frontend.add_command(self.anchor_ago_list, self.anchor_ant_list,
-                                      o80.Duration_us.seconds(duration),
+                                      # o80.Duration_us.seconds(duration),
                                       o80.Mode.QUEUE)
             # sending the command to the robot, and waiting for its completion.
             self.frontend.pulse_and_wait()
         # for dof in self.dof_list:
         #     print("the {}. ago/ant pressure is: {:.2f}/{:.2f}".format(dof, pressures[dof, 0], pressures[dof, 1]) )
+            time.sleep(10)
 
     def AngleInitialization(self, angle, tolerance_list=[0.1,0.2,0.1,1.0], 
                             frequency_frontend=100, frequency_backend=500):        

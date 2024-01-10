@@ -13,7 +13,7 @@ class RobotGeometry:
 
     def __init__(self, center_of_robot=[0, 0, 0], x_of_robot=[1, 0, 0],
                  y_of_robot=[0, 1, 0], z_of_robot=[0, 0, 1], 
-                 initial_posture=np.array([0, -30, -30, 0])/180*math.pi, 
+                 initial_posture=np.array([0, 0.833, 0.220, 0]), #initial_posture=np.array([0, -30, -30, 0])/180*math.pi, 
                  l_1=0.40, l_2=0.38, step_size=0.01, constraint_angle=None):
         # for now the coordinates of robot must be [0, 0, 0]
         self.center_of_robot = center_of_robot
@@ -359,16 +359,17 @@ class RobotGeometry:
             a = np.array([acceleration_initial, a_target, a_final, a_final]).T
         
         # [p_angular_mjl, t_stamp] = MJ_linear.PathPlanning(angle_list, v, t, 1/frequency) 
-        [p_mjp, _, _, _, t_stamp] = MJ_penalty.PathPlanning(p, v, a, t, 1/frequency, m_list, n_list)    
+        [p_mjp, p_mjv, p_mja, p_mjj, t_stamp] = MJ_penalty.PathPlanning(p[:,:2], v[:,:2], a[:,:2], t[:2], 1/frequency, m_list, n_list)    
         p_mjp = p_mjp + p_initial.reshape(-1, 1)
         # start = time.perf_counter()
         # [p_mja, _, _, _] = MJ_analytic.PathPlanning(1/frequency, t, p, v, a, smooth_acc=True)
         # p_mja = p_mja + p_initial.reshape(-1, 1)
 
-        p_angular_mjp = self.CalAngularTrajectory(p_mjp, angle[0:3] + self.initial_posture[0:3], frame='Cylinder')
+        # p_angular_mjp = self.CalAngularTrajectory(p_mjp, angle[0:3] + self.initial_posture[0:3], frame='Cylinder')
+        p_angular_mjp = self.CalAngularTrajectory(p_mjp, self.initial_posture[0:3], frame='Cylinder')
         # p_angular_mja = self.CalAngularTrajectory(p_mja, angle[0:3] + self.initial_posture[0:3], frame='Cylinder')
 
-        return (p_mjp, p_angular_mjp, t_stamp)
+        return (p_mjp, p_mjv, p_mja, p_mjj, p_angular_mjp, t_stamp)
 
 def GetPlot(p_mja, p_mjp, p_angular_mja, p_angular_mjp, p_angular_mjl, t_list, step, index):
 

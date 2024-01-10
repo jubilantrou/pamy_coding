@@ -5,12 +5,12 @@ import torch.nn.functional as F
 
 class CNN(nn.Module):
 
-    def __init__(self, channel_in=1, channel_out=1, dropout=0.0,
-                 length_data=100, length_label=1, filter_size=21, width=3):
+    def __init__(self, channel_in, filter_size, height, width, channel_out=1, dropout=0.0,
+                 length_label=1):
      
         super(CNN, self).__init__()
 
-        l = length_data
+        l = height
         self.conv1 = nn.Sequential(  nn.Conv2d( in_channels=channel_in,
                                                 out_channels=3*channel_in,
                                                 kernel_size=(filter_size, 3),
@@ -95,7 +95,7 @@ class CNN(nn.Module):
                                  nn.Dropout(dropout),
                                  nn.ReLU(),
                                  nn.Linear( 16, length_label * channel_out, bias=True ), 
-                                #  nn.Tanh()
+                                 nn.Tanh()
                                 #  nn.Hardtanh(-0.9,0.9)
                                 )
         

@@ -2,6 +2,11 @@
 This script is the configuration of Pamy.
 initial posture: GLOBAL_INITIAL
 SI: identification data
+pressure: anchor points and limits
+strategy list
+pid list
+delta lists
+weight list
 '''
 #%%
 import numpy as np
@@ -13,7 +18,8 @@ import pickle5 as pickle
 The initial posture of pamy.
 All the values are absolute values in angular space in rad.
 '''
-GLOBAL_INITIAL = np.array([0.000000, 0.514884, 0.513349, 0.0000])
+# GLOBAL_INITIAL = np.array([0.000000, 0.514884, 0.513349, 0.0000])
+GLOBAL_INITIAL = np.array([0, 0.833, 0.220, 0])
 # %%
 def FulfillZeros( a ):
     b = np.zeros(  [len(a), len(max(a, key = lambda x: len(x)))]  )
@@ -194,37 +200,50 @@ model_den = FulfillZeros(model_den)
 model_ndelay_list = [2, 3, 3, 3]
 model_num_order   = [2, 3, 2, 2]
 model_den_order   = [3, 3, 2, 3]
+# ----------------------------------------------------------------------------------------------------------------
 
 anchor_ago_list = np.array([19300, 17500, 17100, 16000])
 anchor_ant_list = np.array([19900, 22000, 16900, 17400])
-# ----------------------------------------------------------------------------------------------------------------
 
-ago_max_list = np.array([22000, 25000, 22000, 22000])
-ant_max_list = np.array([22000, 23000, 22000, 22000])
+ago_min_list = np.array([15000, 15000, 13000, 13000])
+ago_max_list = np.array([24900, 21400, 20900, 18900])
+ant_min_list = np.array([16000, 16000, 13000, 13000])
+ant_max_list = np.array([24900, 24900, 20900, 21800])
 
-ago_min_list = [13000, 13500, 10000, 8000]
-ant_min_list = [13000, 14500, 10000, 8000]
-
-pressure_max = ago_max_list - anchor_ago_list
-pressure_min = ago_min_list - anchor_ago_list
+ago_pressure_max = ago_max_list - anchor_ago_list
+ago_pressure_min = ago_min_list - anchor_ago_list
+ant_pressure_max = ant_max_list - anchor_ant_list
+ant_pressure_min = ant_min_list - anchor_ant_list
+pressure_max = [min([ago_pressure_max[i],ant_pressure_max[i]]) for i in range(len(dof_list))]
+pressure_min = [max([ago_pressure_min[i],ant_pressure_min[i]]) for i in range(len(dof_list))]
+pressure_limit = [min([pressure_max[i],-pressure_min[i]]) for i in range(len(dof_list))]
 
 strategy_list = np.array([1, 1, 1, 1])
 
-pid_list = [[-3.505924158687806e+04, -3.484022215671791e+05/5, -5.665386729745434e+02],
-            [-8.228984656729296e+04, -1.304087541343074e+04/2, -4.841489121599795e+02],
-            [-36752.24956301624,     -246064.5612272051/10,    -531.2866756516057],
-            [3.422187330173758e+04,  1.673663594798479e+05/10, 73.238165769446297]]
-pid_list = FulfillZeros( pid_list )
+# pid_list = [[-3.505924158687806e+04, -3.484022215671791e+05/5, -5.665386729745434e+02],
+#             [-8.228984656729296e+04, -1.304087541343074e+04/2, -4.841489121599795e+02],
+#             [-36752.24956301624,     -246064.5612272051/10,    -531.2866756516057],
+#             [3.422187330173758e+04,  1.673663594798479e+05/10, 73.238165769446297]]
+# pid_list = FulfillZeros( pid_list )
+pid_list = np.zeros([4,3])
 
-delta_d_list   = np.array([1e-9, 1e-11, 1e-8, 1e-9]) 
-delta_y_list   = np.array([1e-3, 1e-3, 1e-3, 1e-3])
-delta_w_list   = np.array([1e-9, 1e-11, 1e-8, 1e-9])
-delta_ini_list = np.array([1e-7, 1e-7, 1e-7, 1e-7])
+# delta_d_list   = np.array([1e-9, 1e-11, 1e-8, 1e-9]) 
+# delta_y_list   = np.array([1e-3, 1e-3, 1e-3, 1e-3])
+# delta_w_list   = np.array([1e-9, 1e-11, 1e-8, 1e-9])
+# delta_ini_list = np.array([1e-7, 1e-7, 1e-7, 1e-7])
+delta_d_list = np.zeros(4)
+delta_y_list = np.zeros(4)
+delta_w_list = np.zeros(4)
+delta_ini_list = np.zeros(4)
 
-weight_list = [(0.1, 1.0),
-               (1.0, 1.0),
-               (0.1, 1.0),
-               (1.0, 1.0)]
+# weight_list = [(0.1, 1.0),
+#                (1.0, 1.0),
+#                (0.1, 1.0),
+#                (1.0, 1.0)]
+weight_list = [(0.0, 0.0),
+               (0.0, 0.0),
+               (0.0, 0.0),
+               (0.0, 0.0)]
 # %%
 '''
 Build the robot model

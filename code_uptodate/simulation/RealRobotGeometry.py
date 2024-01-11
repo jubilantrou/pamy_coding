@@ -202,7 +202,8 @@ class RobotGeometry:
                     z_over_r = -1
                 elif z/r > 0:
                     z_over_r = 1
-                alpha = -abs( math.pi/2 - math.asin( z_over_r) )
+                # alpha = -abs( math.pi/2 - math.asin( z_over_r) )
+                alpha = abs( math.pi/2 - math.asin( z_over_r) )
                  
                 theta2 = angle[2]
                 theta0_ = theta0
@@ -359,7 +360,8 @@ class RobotGeometry:
             a = np.array([acceleration_initial, a_target, a_final, a_final]).T
         
         # [p_angular_mjl, t_stamp] = MJ_linear.PathPlanning(angle_list, v, t, 1/frequency) 
-        [p_mjp, p_mjv, p_mja, p_mjj, t_stamp] = MJ_penalty.PathPlanning(p[:,:2], v[:,:2], a[:,:2], t[:2], 1/frequency, m_list, n_list)    
+        [p_mjp, p_mjv, p_mja, p_mjj, t_stamp] = MJ_penalty.PathPlanning(p[:,:2], v[:,:2], a[:,:2], t[:2], 1/frequency, m_list, n_list)
+        # [p_mjp, p_mjv, p_mja, p_mjj, t_stamp] = MJ_penalty.PathPlanning(p, v, a, t, 1/frequency, m_list, n_list)    
         p_mjp = p_mjp + p_initial.reshape(-1, 1)
         # start = time.perf_counter()
         # [p_mja, _, _, _] = MJ_analytic.PathPlanning(1/frequency, t, p, v, a, smooth_acc=True)

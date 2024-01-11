@@ -298,9 +298,10 @@ class Robot:
             res_d = ( angle_delta - angle_delta_pre ) / t
             res_i += angle_delta * t
 
-            feedback = pid[:, 0].reshape(len(self.dof_list), -1) * angle_delta\
-                     + pid[:, 1].reshape(len(self.dof_list), -1) * res_i\
-                     + pid[:, 2].reshape(len(self.dof_list), -1) * res_d
+            # feedback = pid[:, 0].reshape(len(self.dof_list), -1) * angle_delta\
+            #          + pid[:, 1].reshape(len(self.dof_list), -1) * res_i\
+            #          + pid[:, 2].reshape(len(self.dof_list), -1) * res_d
+            feedback = 0
             
             angle_delta_pre = np.copy( angle_delta )
 

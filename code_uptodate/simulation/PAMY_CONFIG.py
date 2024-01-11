@@ -19,7 +19,7 @@ The initial posture of pamy.
 All the values are absolute values in angular space in rad.
 '''
 # GLOBAL_INITIAL = np.array([0.000000, 0.514884, 0.513349, 0.0000])
-GLOBAL_INITIAL = np.array([0, 0.833, 0.220, 0])
+GLOBAL_INITIAL = np.array([0, 0.8, 0, 0])
 # %%
 def FulfillZeros( a ):
     b = np.zeros(  [len(a), len(max(a, key = lambda x: len(x)))]  )
@@ -225,7 +225,11 @@ strategy_list = np.array([1, 1, 1, 1])
 #             [-36752.24956301624,     -246064.5612272051/10,    -531.2866756516057],
 #             [3.422187330173758e+04,  1.673663594798479e+05/10, 73.238165769446297]]
 # pid_list = FulfillZeros( pid_list )
-pid_list = np.zeros([4,3])
+pid_list = [[-3998,  -15108, -264.5],
+            [-3998,  -10108, -264.5],
+            [-3998,  -8008, -264.5],
+            [0, 0, 0]]
+pid_list = FulfillZeros( pid_list )
 
 # delta_d_list   = np.array([1e-9, 1e-11, 1e-8, 1e-9]) 
 # delta_y_list   = np.array([1e-3, 1e-3, 1e-3, 1e-3])

@@ -355,8 +355,9 @@ def get_prediction(cnn_list, y, denorm):
             u[dof, :] = cnn(dataset[0].float()).cpu().detach().numpy().flatten() * denorm[dof]
     return u
 # %% initilization
-# Pamy.AngleInitialization(PAMY_CONFIG.GLOBAL_INITIAL)
-Pamy.PressureInitialization()
+print('init')
+Pamy.AngleInitialization(PAMY_CONFIG.GLOBAL_INITIAL)
+# Pamy.PressureInitialization()
 angle_initial_read = np.array(frontend.latest().get_positions())
 # %% define the cnn
 cnn_list   = []
@@ -368,8 +369,8 @@ idx_list.append(idx)
 
 def weight_init(l):
     if isinstance(l,nn.Conv2d) or isinstance(l,nn.Linear):
-        nn.init.xavier_normal_(l.weight)
-        nn.init.normal_(l.bias)
+        nn.init.constant_(l.weight,0.0)
+        nn.init.constant_(l.bias,0.0)
 
 for dof in range(3):
     cnn = CNN(filter_size=filter_size, width=width, height=height, channel_in=nr_channel)
@@ -516,7 +517,7 @@ for i_epoch in range(nr_epoch):
         part1_temp = y_out - Pamy.y_desired
         part1 = [part1_temp[i].reshape(1,-1) for i in range(len(part1_temp))]
         loss = [np.linalg.norm(part1_temp[i].reshape(1,-1)) for i in range(len(part1_temp))]
-        step_list = [0.2, 0.05, 1.0]
+        step_list = [0.5, 0.5, 0.5]
         for dof in range(3):  # update the linear model b
             W_list[dof] = W_list[dof] - step_list[dof]*(part1[dof]@part2[dof]@part3[dof]).reshape(-1, 1)
         #     '''
@@ -533,8 +534,8 @@ for i_epoch in range(nr_epoch):
 
         print('____________')
         print('initialization for next training')
-        # Pamy.AngleInitialization(PAMY_CONFIG.GLOBAL_INITIAL)
-        Pamy.PressureInitialization()
+        Pamy.AngleInitialization(PAMY_CONFIG.GLOBAL_INITIAL)
+        # Pamy.PressureInitialization()
         angle_initial_read =np.array(frontend.latest().get_positions())
     
     # index_used = [] 

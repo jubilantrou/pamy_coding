@@ -19,7 +19,7 @@ The initial posture of pamy.
 All the values are absolute values in angular space in rad.
 '''
 # GLOBAL_INITIAL = np.array([0.000000, 0.514884, 0.513349, 0.0000])
-GLOBAL_INITIAL = np.array([0, 0.8, 0, 0])
+GLOBAL_INITIAL = np.array([0, 0.8, 0.8, 0])
 # %%
 def FulfillZeros( a ):
     b = np.zeros(  [len(a), len(max(a, key = lambda x: len(x)))]  )
@@ -214,9 +214,11 @@ ago_pressure_max = ago_max_list - anchor_ago_list
 ago_pressure_min = ago_min_list - anchor_ago_list
 ant_pressure_max = ant_max_list - anchor_ant_list
 ant_pressure_min = ant_min_list - anchor_ant_list
-pressure_max = [min([ago_pressure_max[i],ant_pressure_max[i]]) for i in range(len(dof_list))]
-pressure_min = [max([ago_pressure_min[i],ant_pressure_min[i]]) for i in range(len(dof_list))]
-pressure_limit = [min([pressure_max[i],-pressure_min[i]]) for i in range(len(dof_list))]
+pressure_max = [min([ago_pressure_max[i],-ant_pressure_min[i]]) for i in range(len(dof_list))]
+pressure_min = [max([ago_pressure_min[i],-ant_pressure_max[i]]) for i in range(len(dof_list))]
+pressure_limit = [min([ago_pressure_max[i],-ago_pressure_min[i],ant_pressure_max[i],-ant_pressure_min[i]]) for i in range(len(dof_list))]
+print('pressure limits:')
+print(pressure_limit)
 
 strategy_list = np.array([1, 1, 1, 1])
 

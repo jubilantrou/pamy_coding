@@ -24,12 +24,14 @@ def get_handle(mujoco_id='pamy_sim', mode='pressure', generation='second', rotat
         robot_type = robot_type,
         segment_id = robot_segment_id,
         control = control,
+        position = (0.0, 0.0, 1.21),
         orientation = Rotation.from_euler('z',rotation_z_robot,degrees=True),
         ) 
     # constructing the handle
     table = pam_mujoco.MujocoTable("table", position=position)
+    hit_point = pam_mujoco.MujocoItem("hit_point", control=pam_mujoco.MujocoItem.CONSTANT_CONTROL, color=(0,0,1,1))
     handle = pam_mujoco.MujocoHandle(
-        mujoco_id, robot1=robot, table=table, graphics=True, accelerated_time=False
+        mujoco_id, robot1=robot, table=table, hit_points=(hit_point,), graphics=True, accelerated_time=False
     )
 
     return handle

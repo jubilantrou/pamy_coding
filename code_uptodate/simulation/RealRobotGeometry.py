@@ -54,7 +54,7 @@ class RobotGeometry:
             x = math.cos(theta0) * math.sin(theta1) * l_1 + math.cos(theta0) * math.sin(theta1 + theta2) * l_2
             y = math.sin(theta0) * math.sin(theta1) * l_1 + math.sin(theta0) * math.sin(theta1 + theta2) * l_2
             z = math.cos(theta1) * l_1 + math.cos(theta1 + theta2) * l_2
-            position_B = np.array([x, y, z])
+            position_B = np.array([-y, x, z+1.21])
 
         elif frame == 'Polar':
             position_A = np.array([theta0, theta1, l_1])

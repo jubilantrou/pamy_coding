@@ -21,6 +21,7 @@ import time
 from RealRobotGeometry import RobotGeometry
 import time
 import torch.nn as nn
+import o80
 # %% parameter configuration file (can be organized as an independent file)
 obj = 'sim'
 # parameters about the simulator setting in get_handle.py
@@ -52,7 +53,7 @@ RG = RobotGeometry()
 coupling          = 'yes'
 nr_epoch          = 10
 nr_channel        = 1
-h                 = 100
+h                 = 25
 nr_iteration      = 10
 # version           = 'random'
 # train_index       = [17, 62, 1, 41, 37, 32, 67, 15, 70, 64, 23, 28, 66, 33, 35, 34, 54, 58, 38, 56, 47, 55, 11, 59, 21, 4, 48, 65, 14, 52]
@@ -78,15 +79,15 @@ nr_iteration      = 10
 width      = 3
 ds          = 1
 height       = int((2*h)/ds)+1
-filter_size = 21
+filter_size = 5
 # learning_rate = [1e-4, 1e-5, 3e-5]
 # weight_decay = 0.00
 # %% functions
 def get_random():
     theta = np.zeros(3)
-    theta[0] = random.randrange(-300, 300)/10
-    theta[1] = random.randrange(400, 700)/10
-    theta[2] = random.randrange(400, 700)/10
+    theta[0] = random.randrange(-400, 400)/10
+    theta[1] = random.randrange(600, 700)/10
+    theta[2] = random.randrange(600, 700)/10
     t        = random.randrange(90, 100)/100
     theta    = theta * math.pi/180
     return (t, theta)
@@ -355,10 +356,16 @@ def get_prediction(cnn_list, y, denorm):
             u[dof, :] = cnn(dataset[0].float()).cpu().detach().numpy().flatten() * denorm[dof]
     return u
 # %% initilization
-print('init')
+print('init begins')
 Pamy.AngleInitialization(PAMY_CONFIG.GLOBAL_INITIAL)
 # Pamy.PressureInitialization()
 angle_initial_read = np.array(frontend.latest().get_positions())
+obs_pressure = np.array(frontend.latest().get_observed_pressures())
+pressure_ago = obs_pressure[:, 0]
+pressure_ant = obs_pressure[:, 1]
+print(pressure_ago)
+print(pressure_ant)
+print('init done')
 # %% define the cnn
 cnn_list   = []
 name_list  = []
@@ -369,8 +376,8 @@ idx_list.append(idx)
 
 def weight_init(l):
     if isinstance(l,nn.Conv2d) or isinstance(l,nn.Linear):
-        nn.init.constant_(l.weight,0.0)
-        nn.init.constant_(l.bias,0.0)
+        nn.init.uniform_(l.weight,a=-0.05,b=0.05)
+        nn.init.constant_(l.bias,0.01)
 
 for dof in range(3):
     cnn = CNN(filter_size=filter_size, width=width, height=height, channel_in=nr_channel)
@@ -384,7 +391,12 @@ for name, param in cnn.named_parameters():  # models are the same for all dofs
     d_idx = len(param.data.view(-1))
     idx += d_idx
     idx_list.append(idx)
-print(idx_list)
+# print('para name')
+# print(name_list)
+# print('para shape')
+# print(shape_list)
+# print('idx list')
+# print(idx_list)
 # %% build Pamys for training and testing
 # Pamy_train = []
 # Pamy_test  = []
@@ -403,10 +415,26 @@ print(idx_list)
 #     Pamy.GetOptimizer_convex(angle_initial_read, nr_channel=nr_channel, coupling=coupling)
 #     Pamy_test.append(Pamy)
 # %% Learning
-index_used = []
-
 (t, angle) = get_random()
+print('target:')
 print(angle/math.pi*180)
+(_, p_int) = RG.AngleToEnd(angle=angle,frame='Cartesian')
+hit_point = handle.frontends["hit_point"]
+hit_point.add_command(p_int.reshape(-1).tolist(),(0,0,0),o80.Duration_us.seconds(1),o80.Mode.QUEUE)
+hit_point.pulse_and_wait()
+
+# (p, v, a, j, theta, t_stamp) = RG.PathPlanning(time_point=0, angle=PAMY_CONFIG.GLOBAL_INITIAL, T_go=t, target=angle)
+# theta = np.vstack((theta, np.zeros((1, theta.shape[1]))))
+# (_, p_int) = RG.AngleToEnd(angle=angle,frame='Cartesian')
+# print('p_int')
+# print(p_int.reshape(-1).tolist())
+# hit_point = handle.frontends["hit_point"]
+# hit_point.add_command(p_int.reshape(-1).tolist(),(0,0,0),o80.Duration_us.seconds(1),o80.Mode.QUEUE)
+# hit_point.pulse_and_wait()
+# for j in range(len(t_stamp)):
+#     joints = theta[:,j].reshape(-1).tolist()
+#     frontend.add_command(joints,(0,0,0,0),o80.Duration_us.milliseconds(100),o80.Mode.QUEUE)
+#     frontend.pulse_and_wait()
 
 for i_epoch in range(nr_epoch):
     # root_epoch = root_learning + '/' + str(i_epoch)
@@ -468,12 +496,15 @@ for i_epoch in range(nr_epoch):
 
     # for i_it in range(len(train_index)):
     for i_it in range(nr_iteration):
-        index = i_it
 
         # Pamy   = PAMY_CONFIG.build_pamy(frontend=frontend)
         # (t, angle) = get_random()
         (p, v, a, j, theta, t_stamp) = RG.PathPlanning(time_point=0, angle=PAMY_CONFIG.GLOBAL_INITIAL, T_go=t, target=angle)
         theta = np.vstack((theta, np.zeros((1, theta.shape[1]))))
+        theta_ = theta
+        print('traj overview')
+        print(np.min(theta,axis=1))
+        print(np.max(theta,axis=1))
         theta = theta - theta[:, 0].reshape(-1, 1)
         Pamy.ImportTrajectory(theta, t_stamp)  #  import the desired trajectories and the time stamp
         Pamy.GetOptimizer_convex(angle_initial_read, nr_channel=nr_channel, coupling=coupling)
@@ -487,7 +518,46 @@ for i_epoch in range(nr_epoch):
         u = get_prediction(cnn_list, Pamy.y_desired, PAMY_CONFIG.pressure_limit)
 
         (y, ff, fb, obs_ago, obs_ant) = Pamy.online_convex_optimization(u, coupling=coupling, learning_mode='u')
+        print('observer for pressure here!')
+        print(obs_ago[0,::10])
+        print(obs_ant[0,::10])
         y_out = y - y[:, 0].reshape(-1, 1)
+
+        #plot
+        legend_position = 'lower right'
+        
+        fig = plt.figure(figsize=(16, 16))
+        ax_position0 = fig.add_subplot(311)
+        plt.xlabel(r'Time $t$ in s')
+        plt.ylabel(r'Angle_0 $\theta$ in degree')
+        line = []
+        line_temp, = ax_position0.plot(t_stamp, theta_[0, :] * 180 / math.pi, linewidth=2, label=r'Pos. dof0 des')
+        line.append( line_temp )
+        line_temp, = ax_position0.plot(t_stamp, y[0, :] * 180 / math.pi, linewidth=2, label=r'Pos. dof0 out')
+        line.append( line_temp )
+        plt.legend(handles=line, loc=legend_position, shadow=True)
+            
+        ax_position1 = fig.add_subplot(312)
+        plt.xlabel(r'Time $t$ in s')
+        plt.ylabel(r'Angle_1 $\theta$ in degree')
+        line = []
+        line_temp, = ax_position1.plot(t_stamp, theta_[1, :] * 180 / math.pi, linewidth=2, label=r'Pos. dof1 des')
+        line.append( line_temp )
+        line_temp, = ax_position1.plot(t_stamp, y[1, :] * 180 / math.pi, linewidth=2, label=r'Pos. dof1 out')
+        line.append( line_temp )
+        plt.legend(handles=line, loc=legend_position, shadow=True)
+        
+        ax_position2 = fig.add_subplot(313)
+        plt.xlabel(r'Time $t$ in s')
+        plt.ylabel(r'Angle_2 $\theta$ in degree')
+        line = []
+        line_temp, = ax_position2.plot(t_stamp, theta_[2, :] * 180 / math.pi, linewidth=2, label=r'Pos. dof2 des')
+        line.append( line_temp )
+        line_temp, = ax_position2.plot(t_stamp, y[2, :] * 180 / math.pi, linewidth=2, label=r'Pos. dof2 out')
+        line.append( line_temp )
+        plt.legend(handles=line, loc=legend_position, shadow=True)
+        
+        plt.show()
 
         # root_file = root_epoch + '/' + str(i_it) 
         # file = open(root_file, 'wb')
@@ -514,12 +584,12 @@ for i_epoch in range(nr_epoch):
             W_list[i] = W.cpu().numpy().reshape(-1, 1)
         part3 = get_grads_list(get_dataset(Pamy.y_desired), cnn_list)
         part2 = [Pamy.O_list[i].Bu for i in PAMY_CONFIG.dof_list]
-        part1_temp = y_out - Pamy.y_desired
+        part1_temp = y-theta_
         part1 = [part1_temp[i].reshape(1,-1) for i in range(len(part1_temp))]
         loss = [np.linalg.norm(part1_temp[i].reshape(1,-1)) for i in range(len(part1_temp))]
-        step_list = [0.5, 0.5, 0.5]
+        step_list = [5e-3, 5e-2, 5e-2]
         for dof in range(3):  # update the linear model b
-            W_list[dof] = W_list[dof] - step_list[dof]*(part1[dof]@part2[dof]@part3[dof]).reshape(-1, 1)
+            W_list[dof] = W_list[dof] - step_list[dof]*PAMY_CONFIG.pressure_limit[dof]*(part1[dof]@part2[dof]@part3[dof]).reshape(-1, 1)
         #     '''
         #     b = b - s_k * pinv(1/t*sum(L.T * L)+alpha/t*sum(X.T * X)+epsilon*I) * L.T * (y_out - y_des)
         #     '''

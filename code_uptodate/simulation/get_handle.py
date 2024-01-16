@@ -1,7 +1,7 @@
 import pam_mujoco
 from scipy.spatial.transform import Rotation
 
-def get_handle(mujoco_id='pamy_sim', mode='pressure', generation='second', rotation_z_robot=90, position=(0.0, 1.57, 0.755)):
+def get_handle(mujoco_id='pamy_sim', mode='pressure', generation='second', rotation_z_robot=90, position=(0.0, 1.7, 0.755)):
     # It is assumed that the waiting instance of pam_mujoco was started already using this same mujoco_id.
 
     # the o80 segment id of the robot

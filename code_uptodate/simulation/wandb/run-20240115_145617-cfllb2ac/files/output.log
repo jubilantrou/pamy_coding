@@ -1,0 +1,137 @@
+0. initial angle is: 0.04 degree
+1. initial angle is: 45.60 degree
+2. initial angle is: 45.84 degree
+3. initial angle is: -2.99 degree
+final positions:
+[-0.41231049 46.64706525 24.37060633 -3.25614555]
+begin 0,0. optimization
+end 0,0. optimization
+loss:
+[5.7079939902767745, 1.4312538474491603, 6.456183207530488, 0.5523153266396184]
+the 0. expected/actual angle: 0.00/-0.02 degree
+the error of 0. angle: -0.02 degree
+the 1. expected/actual angle: 45.84/45.79 degree
+the error of 1. angle: -0.05 degree
+the 2. expected/actual angle: 45.84/45.74 degree
+the error of 2. angle: -0.10 degree
+the 3. expected/actual angle: 0.00/-3.48 degree
+the error of 3. angle: -3.48 degree
+prepared for next training
+____________
+____________
+0. initial angle is: -0.00 degree
+1. initial angle is: 45.87 degree
+2. initial angle is: 45.83 degree
+3. initial angle is: -3.50 degree
+final positions:
+[-50.11334782  51.84469019  65.71843226  -3.51606356]
+begin 0,1. optimization
+end 0,1. optimization
+loss:
+[3.3171759175465625, 1.2046331004694293, 1.8454078638322928, 0.6038013570439776]
+the 0. expected/actual angle: 0.00/0.07 degree
+the error of 0. angle: 0.07 degree
+the 1. expected/actual angle: 45.84/45.84 degree
+the error of 1. angle: -0.00 degree
+the 2. expected/actual angle: 45.84/45.74 degree
+the error of 2. angle: -0.10 degree
+the 3. expected/actual angle: 0.00/-3.55 degree
+the error of 3. angle: -3.55 degree
+prepared for next training
+____________
+____________
+0. initial angle is: 0.11 degree
+1. initial angle is: 45.80 degree
+2. initial angle is: 45.83 degree
+3. initial angle is: -3.55 degree
+final positions:
+[-38.53842024  54.19939685  66.37267551  -3.54150911]
+begin 0,2. optimization
+end 0,2. optimization
+loss:
+[2.7424870272268773, 2.214017262912422, 1.0928083578034755, 0.6086178364774056]
+the 0. expected/actual angle: 0.00/0.07 degree
+the error of 0. angle: 0.07 degree
+the 1. expected/actual angle: 45.84/45.83 degree
+the error of 1. angle: -0.01 degree
+the 2. expected/actual angle: 45.84/45.74 degree
+the error of 2. angle: -0.10 degree
+the 3. expected/actual angle: 0.00/-3.55 degree
+the error of 3. angle: -3.55 degree
+prepared for next training
+____________
+____________
+0. initial angle is: 0.09 degree
+1. initial angle is: 45.80 degree
+2. initial angle is: 45.83 degree
+3. initial angle is: -3.55 degree
+final positions:
+[-43.03036638  60.82658407  66.27482425  -3.54392193]
+begin 0,3. optimization
+end 0,3. optimization
+loss:
+[4.079764372553723, 1.7977028576282554, 1.0814228471144065, 0.6184142157206438]
+the 0. expected/actual angle: 0.00/0.07 degree
+the error of 0. angle: 0.07 degree
+the 1. expected/actual angle: 45.84/45.85 degree
+the error of 1. angle: 0.01 degree
+the 2. expected/actual angle: 45.84/45.74 degree
+the error of 2. angle: -0.10 degree
+the 3. expected/actual angle: 0.00/-3.55 degree
+the error of 3. angle: -3.55 degree
+prepared for next training
+____________
+____________
+0. initial angle is: 0.09 degree
+1. initial angle is: 45.78 degree
+2. initial angle is: 45.83 degree
+3. initial angle is: -3.55 degree
+final positions:
+[-11.09103382  63.4948687   66.13155773  -3.54225596]
+begin 0,4. optimization
+end 0,4. optimization
+loss:
+[3.0287089653468513, 1.3606438187871637, 1.1868870758059824, 0.6180570830035667]
+the 0. expected/actual angle: 0.00/0.04 degree
+the error of 0. angle: 0.04 degree
+the 1. expected/actual angle: 45.84/45.83 degree
+the error of 1. angle: -0.00 degree
+the 2. expected/actual angle: 45.84/45.74 degree
+the error of 2. angle: -0.10 degree
+the 3. expected/actual angle: 0.00/-3.55 degree
+the error of 3. angle: -3.55 degree
+prepared for next training
+____________
+____________
+0. initial angle is: -0.00 degree
+1. initial angle is: 45.78 degree
+2. initial angle is: 45.83 degree
+3. initial angle is: -3.55 degree
+final positions:
+[-32.67234145  62.7288249   66.18719005  -3.54294779]
+/home/mtian/Desktop/MPI-intern/pamy_coding/code_uptodate/simulation/Main_OCO_trial_ff_CNN.py:590: RuntimeWarning: More than 20 figures have been opened. Figures created through the pyplot interface (`matplotlib.pyplot.figure`) are retained until explicitly closed and may consume too much memory. (To control this warning, see the rcParam `figure.max_open_warning`). Consider using `matplotlib.pyplot.close()`.
+  fig = plt.figure(figsize=(18, 18))
+begin 0,5. optimization
+end 0,5. optimization
+loss:
+[3.6244454577334433, 1.4352255917939951, 1.6342787567804546, 0.6120007286414526]
+the 0. expected/actual angle: 0.00/0.07 degree
+the error of 0. angle: 0.07 degree
+the 1. expected/actual angle: 45.84/45.84 degree
+the error of 1. angle: 0.01 degree
+the 2. expected/actual angle: 45.84/45.74 degree
+the error of 2. angle: -0.10 degree
+the 3. expected/actual angle: 0.00/-3.55 degree
+the error of 3. angle: -3.55 degree
+prepared for next training
+____________
+____________
+0. initial angle is: 0.07 degree
+1. initial angle is: 45.78 degree
+2. initial angle is: 45.83 degree
+3. initial angle is: -3.55 degree
+final positions:
+[-7.13694872 59.3272172  66.65734185 -3.54151768]
+begin 0,6. optimization
+end 0,6. optimization
+loss:

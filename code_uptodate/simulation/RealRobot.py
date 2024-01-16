@@ -286,7 +286,7 @@ class Robot:
         iteration = iteration_begin
 
         self.frontend.add_command(pressure_ago, pressure_ant,
-                                  o80.Iteration(iteration_begin-iterations_per_command),
+                                  o80.Iteration(iteration_begin-1),
                                   o80.Mode.QUEUE)
         
         self.frontend.pulse()
@@ -384,9 +384,14 @@ class Robot:
             position = position.reshape(-1, len(self.dof_list)).T
             pressure_ago = pressure_ago.reshape(-1, len(self.dof_list)).T
             pressure_ant = pressure_ant.reshape(-1, len(self.dof_list)).T
+
+            observation_prev = self.frontend.read(iteration_begin-iterations_per_command)
+            obs_position_prev = np.array( observation_prev.get_positions() )
+            position = np.hstack([obs_position_prev.reshape(4,1), position[:,:-1]])
             
             print('final positions:')
             print(position[:,-1]/math.pi*180)
+
             return (position, fb, pressure_ago, pressure_ant)
          
     def PressureInitialization(self, times=1, duration=1):
@@ -401,7 +406,7 @@ class Robot:
         #     print("the {}. ago/ant pressure is: {:.2f}/{:.2f}".format(dof, pressures[dof, 0], pressures[dof, 1]) )
             time.sleep(10)
 
-    def AngleInitialization(self, angle, tolerance_list=[0.1,0.2,0.1,1.0], 
+    def AngleInitialization(self, angle, tolerance_list=[0.1,0.1,0.1,1.0], 
                             frequency_frontend=100, frequency_backend=500):        
         pid = np.copy( self.pid_list )
         tolerance_list = np.array(tolerance_list)

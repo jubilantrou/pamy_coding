@@ -8,6 +8,7 @@ import MinJerk_analytic as MJ_analytic
 import LinearPlanning as MJ_linear
 import numba as nb
 import pickle5 as pickle
+import random
 
 class RobotGeometry:
 
@@ -50,7 +51,7 @@ class RobotGeometry:
             x = math.cos(theta0) * math.sin(theta1) * l_1
             y = math.sin(theta0) * math.sin(theta1) * l_1
             z = math.cos(theta1) * l_1
-            position_A = np.array([x, y, z])
+            position_A = np.array([-y, x, z+1.21])
             x = math.cos(theta0) * math.sin(theta1) * l_1 + math.cos(theta0) * math.sin(theta1 + theta2) * l_2
             y = math.sin(theta0) * math.sin(theta1) * l_1 + math.sin(theta0) * math.sin(theta1 + theta2) * l_2
             z = math.cos(theta1) * l_1 + math.cos(theta1 + theta2) * l_2
@@ -68,7 +69,7 @@ class RobotGeometry:
 
         elif frame == 'Cylinder':
             # theta0, r, z
-            position_A = np.array([theta0, abs(l_1*math.sin(theta1)), (l_1*math.cos(theta1))])
+            position_A = np.array([theta0, abs(l_1*math.sin(theta1)), (l_1*math.cos(theta1))+1.21])
 
             r = np.sqrt( l_1**2 + l_2**2 - 2*l_1*l_2*math.cos(math.pi-abs(theta2)) )
 
@@ -77,7 +78,7 @@ class RobotGeometry:
                 alpha = theta1 + gama
             else:
                 alpha = theta1 - gama
-            position_B = np.array([theta0, abs(r*math.sin(alpha)), (r*math.cos(alpha))])
+            position_B = np.array([theta0, abs(r*math.sin(alpha)), (r*math.cos(alpha))+1.21])
 
         return (position_A, position_B)
 
@@ -86,11 +87,11 @@ class RobotGeometry:
         l_2 = self.l_2
         # transform coordinates in Cartesian space into joint space
         if frame == 'Cartesian':
-            x = position[0]
-            y = position[1]
-            z = position[2]
+            x = position[1]
+            y = -position[0]
+            z = position[2]-1.21
 
-            l      = np.linalg.norm(position, ord=2)
+            l      = np.linalg.norm((x,y,z), ord=2)
             theta0 = math.atan(y/x)
 
             gamma   = math.acos((l_1**2 + l**2 - l_2**2) / (2*l_1*l))
@@ -192,7 +193,7 @@ class RobotGeometry:
 
                 theta0 = trajectory[0, i]
                 l = trajectory[1, i]
-                z = trajectory[2, i]
+                z = trajectory[2, i]-1.21
 
                 r = np.sqrt( l**2 + z**2 ) if np.sqrt( l**2 + z**2 ) <= l_1+l_2 else l_1+l_2
 
@@ -296,10 +297,73 @@ class RobotGeometry:
     #                 break
     #     return flag
 
-    def PathPlanning( self, time_point, T_go=1.0, T_back=1.0, T_steady=0.1,
+    def updatedPathPlanning(self, time_point, T_go=1.0, T_back=1.0, T_steady=0.1,
                       angle=None, velocity_initial=np.array([0, 0, 0]), 
                       acceleration_initial=np.array([0, 0, 0]),
                       target=None, frequency=100, plan_weight=(6, 10)):
+        
+        p_list = []
+        v_list = []
+        a_list = []
+        j_list = []
+        theta_list = []
+        t_stamp_list = []
+        p_int_record = [target]
+        time_update_record = []
+
+        (p, v, a, j, theta, t_stamp) = self.PathPlanning(time_point=time_point, angle=angle, T_go=T_go, target=target)
+        print(theta[:,-1]/math.pi*180)
+        p_list.append(p)
+        v_list.append(v)
+        a_list.append(a)
+        j_list.append(j)
+        theta_list.append(theta)
+        t_stamp_list.append(t_stamp)
+
+        idx_begin = 30
+        t_begin = 0.3
+        while t_stamp[-1]-t_begin>=0.3:
+            print('currrent time:')
+            print(t_begin)
+            dice = random.random()
+            if dice>0.5:
+                print('no change')
+                idx_begin += 10
+                t_begin += 0.1
+                continue
+            else:
+                T_go += random.randrange(-15, 15)/100
+                (_, temp) = self.AngleToEnd(target[0:3], frame='Cartesian')
+                temp += [random.randrange(-4,4)/100,random.randrange(-4,4)/100,random.randrange(-8,8)/100]
+                target = self.EndToAngle(temp)
+                p_int_record.append(target)
+                (p, v, a, j, theta, t_stamp) = self.PathPlanning(time_point=(t_begin*100+10), angle=theta[:,(idx_begin+10)], velocity_initial=v[:,(idx_begin+10)], acceleration_initial=a[:,(idx_begin+10)], T_go=T_go, target=target)
+                p_list.append(p)
+                v_list.append(v)
+                a_list.append(a)
+                j_list.append(j)
+                theta_list.append(theta)
+                t_stamp_list.append(t_stamp)
+                time_update_record.append(idx_begin+10)
+                idx_begin = 0
+                t_begin += 0.1
+        
+        p_final = np.hstack([p_list[i][:,:time_update_record[i]] for i in range(len(time_update_record))]+[p_list[-1]])
+        v_final = np.hstack([v_list[i][:,:time_update_record[i]] for i in range(len(time_update_record))]+[v_list[-1]])
+        a_final = np.hstack([a_list[i][:,:time_update_record[i]] for i in range(len(time_update_record))]+[a_list[-1]])
+        j_final = np.hstack([j_list[i][:,:time_update_record[i]] for i in range(len(time_update_record))]+[j_list[-1]])
+        theta_final = np.hstack([theta_list[i][:,:time_update_record[i]] for i in range(len(time_update_record))]+[theta_list[-1]])
+        t_stamp_final = np.hstack([t_stamp_list[i][:time_update_record[i]] for i in range(len(time_update_record))]+[t_stamp_list[-1]])
+        
+        if len(time_update_record)==0:
+            print('output no change')
+            return (p, v, a, j, theta, t_stamp, theta_list, t_stamp_list, p_int_record)
+        return (p_final, v_final, a_final, j_final, theta_final, t_stamp_final, theta_list, t_stamp_list, p_int_record)
+
+    def PathPlanning( self, time_point, T_go=1.0, T_back=1.0, T_steady=0.1,
+                      angle=None, velocity_initial=np.array([0, 0, 0]), 
+                      acceleration_initial=np.array([0, 0, 0]),
+                      target=None, frequency=100, plan_weight=(6, 10), part=1,):
 
         l_1 = self.l_1
         l_2 = self.l_2
@@ -359,9 +423,11 @@ class RobotGeometry:
             v = np.array([velocity_initial, v_target, v_final, v_final]).T
             a = np.array([acceleration_initial, a_target, a_final, a_final]).T
         
-        # [p_angular_mjl, t_stamp] = MJ_linear.PathPlanning(angle_list, v, t, 1/frequency) 
-        [p_mjp, p_mjv, p_mja, p_mjj, t_stamp] = MJ_penalty.PathPlanning(p[:,:2], v[:,:2], a[:,:2], t[:2], 1/frequency, m_list, n_list)
-        # [p_mjp, p_mjv, p_mja, p_mjj, t_stamp] = MJ_penalty.PathPlanning(p, v, a, t, 1/frequency, m_list, n_list)    
+        # [p_angular_mjl, t_stamp] = MJ_linear.PathPlanning(angle_list, v, t, 1/frequency)
+        if part: 
+            [p_mjp, p_mjv, p_mja, p_mjj, t_stamp] = MJ_penalty.PathPlanning(p[:,:2], v[:,:2], a[:,:2], t[:2], 1/frequency, m_list, n_list)
+        else:
+            [p_mjp, p_mjv, p_mja, p_mjj, t_stamp] = MJ_penalty.PathPlanning(p, v, a, t, 1/frequency, m_list, n_list)    
         p_mjp = p_mjp + p_initial.reshape(-1, 1)
         # start = time.perf_counter()
         # [p_mja, _, _, _] = MJ_analytic.PathPlanning(1/frequency, t, p, v, a, smooth_acc=True)

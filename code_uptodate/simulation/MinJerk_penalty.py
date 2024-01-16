@@ -206,7 +206,7 @@ def CalParameter(x_0, x_f, t_0, t_f, m, n):
 
 def CalPath(x_0, x_f, t_0, t_f, step, m, n):
   nr_dof = x_0.shape[0]
-  nr_point = int( np.round((t_f-t_0)/step) ) + 1
+  nr_point = int( (t_f-t_0)/step) + 1
   parameter = np.zeros((nr_dof, 6))
   p = np.zeros( (nr_dof, nr_point) )
   v = np.zeros( (nr_dof, nr_point) )
@@ -265,7 +265,7 @@ def PathPlanning(x_list, v_list, a_list, t_list, step, m_list, n_list):
   for i_point in range(1, nr_point):
     
     idx_1 = idx_2
-    idx_2 = int(np.round(t_list[i_point]/step)) + 1
+    idx_2 = int((t_list[i_point]-t_list[i_point-1])/step) + 1
     
     [p, v, a, j] = GetPath(x_list[:, i_point-1:i_point+1], 
                            v_list[:, i_point-1:i_point+1], 

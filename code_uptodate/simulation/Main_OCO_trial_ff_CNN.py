@@ -89,7 +89,7 @@ def get_random():
     theta[0] = random.choice([random.randrange(-750, -250)/10, random.randrange(250, 750)/10])
     theta[1] = random.choice([random.randrange(100, 350)/10, random.randrange(550, 800)/10])
     theta[2] = random.choice([random.randrange(100, 350)/10, random.randrange(550, 800)/10])
-    t        = random.randrange(90, 100)/100
+    t        = random.randrange(90, 110)/100
     theta    = theta * math.pi/180
     return (t, theta)
 
@@ -344,15 +344,18 @@ for i_epoch in range(nr_epoch):
 
         # Pamy   = PAMY_CONFIG.build_pamy(frontend=frontend)
         (t, angle) = get_random()
-        (p, v, a, j, theta, t_stamp, theta_list, t_stamp_list, p_int_record) = RG.updatedPathPlanning(time_point=0, angle=PAMY_CONFIG.GLOBAL_INITIAL, T_go=t, target=angle)
+        (p, v, a, j, theta, t_stamp, theta_list, t_stamp_list, p_int_record, time_update_record) = RG.updatedPathPlanning(time_point=0, angle=PAMY_CONFIG.GLOBAL_INITIAL, T_go=t, target=angle)
         # (p, v, a, j, theta, t_stamp) = RG.PathPlanning(time_point=0, angle=PAMY_CONFIG.GLOBAL_INITIAL, T_go=t, target=angle)
 
         print('targets:')
         for ele in p_int_record:
             print(ele/math.pi*180)
-        print('T_go:')
+        print('time interval:')
         for ele in t_stamp_list:
-            print(ele[-1])
+            print(ele[0], ele[-1])
+        print('update moments:')
+        for ele in time_update_record:
+            print(ele)
 
         # t = traj_house[i_it]['t']
         # angle = traj_house[i_it]['angle']
@@ -419,19 +422,19 @@ for i_epoch in range(nr_epoch):
         plots = []
 
         if if_plot:
-            legend_position = 'lower right'
+            legend_position = 'best'
             fig = plt.figure(figsize=(18, 18))
 
             ax_position0 = fig.add_subplot(311)
             plt.xlabel(r'Time $t$ in s')
             plt.ylabel(r'Position of Dof_0 in degree')
             line = []
-            line_temp, = ax_position0.plot(t_stamp, y[0, :] * 180 / math.pi, linewidth=2, linestyle='dashed', label=r'Pos_Dof0_out')
+            line_temp, = ax_position0.plot(t_stamp, y[0, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,10)), label=r'Pos_Dof0_out')
             line.append( line_temp )
-            line_temp, = ax_position0.plot(t_stamp, theta_[0, :] * 180 / math.pi, linewidth=2, linestyle='dashed', label=r'Pos_Dof0_des')
+            line_temp, = ax_position0.plot(t_stamp, theta_[0, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,10)), label=r'Pos_Dof0_des')
             line.append( line_temp )
             for j in range(len(theta_list)):
-                line_temp, = ax_position0.plot(t_stamp_list[j], theta_list[j][0, :] * 180 / math.pi, linewidth=1, label=str(j+1))
+                line_temp, = ax_position0.plot(t_stamp_list[j], theta_list[j][0, :] * 180 / math.pi, linewidth=2, label='Dof0_traj_candidate_'+str(j+1))
                 line.append( line_temp )
             plt.legend(handles=line, loc=legend_position, shadow=True)
                 
@@ -439,20 +442,26 @@ for i_epoch in range(nr_epoch):
             plt.xlabel(r'Time $t$ in s')
             plt.ylabel(r'Position of Dof_1 in degree')
             line = []
-            line_temp, = ax_position1.plot(t_stamp, y[1, :] * 180 / math.pi, linewidth=2, label=r'Pos_Dof1_out')
+            line_temp, = ax_position1.plot(t_stamp, y[1, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,10)), label=r'Pos_Dof1_out')
             line.append( line_temp )
-            line_temp, = ax_position1.plot(t_stamp, theta_[1, :] * 180 / math.pi, linewidth=2, label=r'Pos_Dof1_des')
+            line_temp, = ax_position1.plot(t_stamp, theta_[1, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,10)), label=r'Pos_Dof1_des')
             line.append( line_temp )
+            for j in range(len(theta_list)):
+                line_temp, = ax_position1.plot(t_stamp_list[j], theta_list[j][1, :] * 180 / math.pi, linewidth=2, label='Dof1_traj_candidate_'+str(j+1))
+                line.append( line_temp )
             plt.legend(handles=line, loc=legend_position, shadow=True)
             
             ax_position2 = fig.add_subplot(313)
             plt.xlabel(r'Time $t$ in s')
             plt.ylabel(r'Position of Dof_2 in degree')
             line = []
-            line_temp, = ax_position2.plot(t_stamp, y[2, :] * 180 / math.pi, linewidth=2, label=r'Pos_Dof2_out')
+            line_temp, = ax_position2.plot(t_stamp, y[2, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,10)), label=r'Pos_Dof2_out')
             line.append( line_temp )
-            line_temp, = ax_position2.plot(t_stamp, theta_[2, :] * 180 / math.pi, linewidth=2, label=r'Pos_Dof2_des')
+            line_temp, = ax_position2.plot(t_stamp, theta_[2, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,10)), label=r'Pos_Dof2_des')
             line.append( line_temp )
+            for j in range(len(theta_list)):
+                line_temp, = ax_position2.plot(t_stamp_list[j], theta_list[j][2, :] * 180 / math.pi, linewidth=2, label='Dof2_traj_candidate_'+str(j+1))
+                line.append( line_temp )
             plt.legend(handles=line, loc=legend_position, shadow=True)
 
             plt.suptitle('Joint Space Trajectory Tracking Performance'+' Iter '+str(i_it))

@@ -406,11 +406,15 @@ class Robot:
         #     print("the {}. ago/ant pressure is: {:.2f}/{:.2f}".format(dof, pressures[dof, 0], pressures[dof, 1]) )
             time.sleep(10)
 
-    def AngleInitialization(self, angle, tolerance_list=[0.1,0.1,0.1,1.0], 
+    def AngleInitialization(self, angle, choice, tolerance_list=[0.1,0.1,0.1,1.0], 
                             frequency_frontend=100, frequency_backend=500):        
         pid = np.copy( self.pid_list )
         tolerance_list = np.array(tolerance_list)
-        theta = self.frontend.latest().get_positions()
+        self.frontend.add_command(self.anchor_ago_list, self.anchor_ant_list,
+                                  o80.Mode.QUEUE)
+        self.frontend.pulse()
+        theta_0 = self.frontend.latest().get_positions()
+        theta = theta_0
         res_i = 0
         angle_delta_pre = np.zeros( len(self.dof_list) ).reshape(len(self.dof_list), -1)
 
@@ -419,7 +423,11 @@ class Robot:
         t = 1 / frequency_frontend
         iterations_per_command = int( period_frontend / period_backend )
 
-        iteration = self.frontend.latest().get_iteration() + 200  # set the iteration when beginning
+        # iteration = self.frontend.latest().get_iteration() + 200  # set the iteration when beginning
+        # iteration_begin = iteration
+        iteration_reference = self.frontend.latest().get_iteration()  
+        iteration = iteration_reference + 200
+        iteration_begin = iteration
 
         self.frontend.add_command(self.anchor_ago_list, self.anchor_ant_list,
                                   o80.Iteration(iteration-iterations_per_command),
@@ -427,9 +435,16 @@ class Robot:
         
         self.frontend.pulse()
         # do not consider the last dof
-        while not (abs((theta[0:3] - angle[0:3])*180/math.pi) < tolerance_list[0:3]).all():
+        count = 0
+        # while not (abs((theta[0:3] - angle[0:3])*180/math.pi) < tolerance_list[0:3]).all():
+        while count<=300:
             # all following vectors must be column vectors
-            angle_delta = (angle - theta).reshape(len(self.dof_list), -1)
+            if count<=50:
+                target = np.array([0.0,0.0,0.0,0.0])
+                target[choice] = theta_0[choice]
+            else:
+                target = angle
+            angle_delta = (target - theta).reshape(len(self.dof_list), -1)
             res_d = ( angle_delta - angle_delta_pre ) / t
             res_i += angle_delta * t
 
@@ -448,8 +463,10 @@ class Robot:
                 pressure_ant = np.append(pressure_ant, int( self.anchor_ant_list[dof] - diff ))
             
             # do not control the last dof
-            pressure_ago[3] = self.anchor_ago_list[3]
-            pressure_ant[3] = self.anchor_ant_list[3]
+            for j in range(4):
+                if j!=choice:
+                    pressure_ago[j] = self.anchor_ago_list[j]
+                    pressure_ant[j] = self.anchor_ant_list[j]
 
             self.frontend.add_command(pressure_ago, pressure_ant,
                                       o80.Iteration(iteration),
@@ -467,9 +484,36 @@ class Robot:
 
             iteration += iterations_per_command
 
-        for dof in self.dof_list:
-            print("the {}. expected/actual angle: {:.2f}/{:.2f} degree".format(dof, angle[dof] * 180 / math.pi, theta[dof] * 180 / math.pi))
-            print("the error of {}. angle: {:.2f} degree".format(dof, (theta[dof] - angle[dof]) * 180 / math.pi))
+            count += 1
+        iteration_end = iteration
+
+        # for dof in self.dof_list:
+        #     print("the {}. expected/actual angle: {:.2f}/{:.2f} degree".format(dof, angle[dof] * 180 / math.pi, theta[dof] * 180 / math.pi))
+        #     print("the error of {}. angle: {:.2f} degree".format(dof, (theta[dof] - angle[dof]) * 180 / math.pi))
+            
+        position = np.array([])
+        time = np.array([])
+        input = np.array([])
+        iteration = iteration_begin
+
+        count = 0
+        while iteration < iteration_end:
+            observation = self.frontend.read(iteration)
+            obs_position = np.array( observation.get_positions() )
+            obs_time = np.array( observation.get_time_stamp() )*1e-9
+            position = np.append(position, obs_position)
+            time = np.append(time, obs_time)
+            if count<= 50:
+                input = np.append(input, theta_0[choice])
+            else:
+                input = np.append(input, angle[choice])
+            iteration += iterations_per_command
+            count += 1
+        
+        position = position.reshape(-1,4).T
+        time = time-time[0]
+
+        return input, time, position
         
     def ILC(self, number_iteration, GLOBAL_INITIAL, mode_name='none'):
         '''

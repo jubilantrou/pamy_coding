@@ -94,11 +94,21 @@ class RobotGeometry:
             l      = np.linalg.norm((x,y,z), ord=2)
             theta0 = math.atan(y/x)
 
-            gamma   = math.acos((l_1**2 + l**2 - l_2**2) / (2*l_1*l))
+            temp = (l_1**2 + l**2 - l_2**2) / (2*l_1*l)
+            if temp>1:
+                temp=1
+            if temp<-1:
+                temp=-1
+            gamma  = math.acos(temp)
             alpha  = math.asin(z/l)
             theta1 = math.pi/2 - gamma - alpha
 
-            beta   = math.acos( (l_1**2 + l_2**2 - l**2) / (2*l_1*l_2) )
+            temp1 = (l_1**2 + l_2**2 - l**2) / (2*l_1*l_2)
+            if temp1>1:
+                temp1=1
+            if temp1<-1:
+                temp1=-1
+            beta   = math.acos(temp1)
             theta2 = math.pi - beta
 
             angle  = np.array( [theta0, theta1, theta2] )
@@ -322,7 +332,7 @@ class RobotGeometry:
 
         idx_begin = 30
         t_begin = 0.3
-        while t_stamp[-1]-t_begin>=0.3:
+        while t_stamp[-1]-t_begin>=0.4:
             print('currrent time:')
             print(t_begin)
             dice = random.random()
@@ -337,6 +347,12 @@ class RobotGeometry:
                 temp += [random.randrange(-4,4)/100,random.randrange(-4,4)/100,random.randrange(-8,8)/100]
                 target = self.EndToAngle(temp)
                 p_int_record.append(target)
+                print('update')
+                print('pos: {}'.format(theta[:,(idx_begin+10)]))
+                print('vel: {}'.format(v[:,(idx_begin+10)]))
+                print('acc: {}'.format(a[:,(idx_begin+10)]))
+                print('T_go: {}'.format(T_go))
+                print('target: {}'.format(target))
                 (p, v, a, j, theta, t_stamp) = self.PathPlanning(time_point=(t_begin*100+10), angle=theta[:,(idx_begin+10)], velocity_initial=v[:,(idx_begin+10)], acceleration_initial=a[:,(idx_begin+10)], T_go=T_go, target=target)
                 p_list.append(p)
                 v_list.append(v)
@@ -357,8 +373,8 @@ class RobotGeometry:
         
         if len(time_update_record)==0:
             print('output no change')
-            return (p, v, a, j, theta, t_stamp, theta_list, t_stamp_list, p_int_record)
-        return (p_final, v_final, a_final, j_final, theta_final, t_stamp_final, theta_list, t_stamp_list, p_int_record)
+            return (p, v, a, j, theta, t_stamp, theta_list, t_stamp_list, p_int_record, time_update_record)
+        return (p_final, v_final, a_final, j_final, theta_final, t_stamp_final, theta_list, t_stamp_list, p_int_record, time_update_record)
 
     def PathPlanning( self, time_point, T_go=1.0, T_back=1.0, T_steady=0.1,
                       angle=None, velocity_initial=np.array([0, 0, 0]), 
@@ -424,7 +440,7 @@ class RobotGeometry:
             a = np.array([acceleration_initial, a_target, a_final, a_final]).T
         
         # [p_angular_mjl, t_stamp] = MJ_linear.PathPlanning(angle_list, v, t, 1/frequency)
-        if part: 
+        if part:
             [p_mjp, p_mjv, p_mja, p_mjj, t_stamp] = MJ_penalty.PathPlanning(p[:,:2], v[:,:2], a[:,:2], t[:2], 1/frequency, m_list, n_list)
         else:
             [p_mjp, p_mjv, p_mja, p_mjj, t_stamp] = MJ_penalty.PathPlanning(p, v, a, t, 1/frequency, m_list, n_list)    
@@ -484,45 +500,78 @@ def GetPlot(p_mja, p_mjp, p_angular_mja, p_angular_mjp, p_angular_mjl, t_list, s
 
 
 if __name__ == '__main__':
-    Robot = RobotGeometry()
+    # Robot = RobotGeometry()
     
-    # %% read data of balls
-    path_of_file = "/home/hao/Desktop/Hao/" + 'BallsData' + '.txt'
-    file = open(path_of_file, 'rb')
-    time_list = pickle.load(file)
-    position_list = pickle.load(file)
-    velocity_list = pickle.load(file)
-    file.close()
+    # # %% read data of balls
+    # path_of_file = "/home/hao/Desktop/Hao/" + 'BallsData' + '.txt'
+    # file = open(path_of_file, 'rb')
+    # time_list = pickle.load(file)
+    # position_list = pickle.load(file)
+    # velocity_list = pickle.load(file)
+    # file.close()
 
-    position_mean = np.mean( position_list, axis=0 )
-    # offset angles of the upright posture
-    offset = np.array( [2.94397627, -0.078539855235, -0.06333859293225] )
-    # angles of initial posture
-    angle_initial_ref = np.array( [2.94397627, -0.605516948, -0.5890489142699] )
-    # anchor angles to hit the ball
-    angle_anchor_ref = np.array( [ 2.94397627, -1.452987321865, -0.87660612618] )
-    # after calibration
-    angle_initial = angle_initial_ref - offset
-    angle_anchor = angle_anchor_ref - offset
+    # position_mean = np.mean( position_list, axis=0 )
+    # # offset angles of the upright posture
+    # offset = np.array( [2.94397627, -0.078539855235, -0.06333859293225] )
+    # # angles of initial posture
+    # angle_initial_ref = np.array( [2.94397627, -0.605516948, -0.5890489142699] )
+    # # anchor angles to hit the ball
+    # angle_anchor_ref = np.array( [ 2.94397627, -1.452987321865, -0.87660612618] )
+    # # after calibration
+    # angle_initial = angle_initial_ref - offset
+    # angle_anchor = angle_anchor_ref - offset
 
-    (_, position_anchor) = Robot.AngleToEnd(angle_anchor, frame='Cartesian')
-    position_error = position_anchor - position_mean
-    position_list = position_list + position_error
+    # (_, position_anchor) = Robot.AngleToEnd(angle_anchor, frame='Cartesian')
+    # position_error = position_anchor - position_mean
+    # position_list = position_list + position_error
     
-    l_1 = 0.4
-    l_2 = 0.38
-    index_list = range(len(time_list))
+    # l_1 = 0.4
+    # l_2 = 0.38
+    # index_list = range(len(time_list))
 
-    for index in index_list:
-        position = position_list[index, :] # x, y, z
-        angle = np.array([0, 0, 0]) / 180 * math.pi
-        if np.linalg.norm(position, ord=2) <= l_1+l_2:
-            T = time_list[index]
-            V = velocity_list[index]
-            target = Robot.EndToAngle( position, frame='Cartesian') # theta1, theta2, theta3
-            t_list = np.array([0, T, T+1.0, T+1.1])
-            (p_mja, p_mjp, p_angular_mja, p_angular_mjp, p_angular_mjl, t_stamp) = Robot.PathPlanning( time_point=0, T_go=T, T_back=1.0, T_steady=0.2,
-                                                            angle=angle, velocity_initial=np.array([0, 0, 0]), 
-                                                            acceleration_initial=np.array([0, 0, 0]),
-                                                            target=target, frequency=100 )
-            GetPlot(p_mja, p_mjp, p_angular_mja, p_angular_mjp, p_angular_mjl, t_list, 0.01, index)
+    # for index in index_list:
+    #     position = position_list[index, :] # x, y, z
+    #     angle = np.array([0, 0, 0]) / 180 * math.pi
+    #     if np.linalg.norm(position, ord=2) <= l_1+l_2:
+    #         T = time_list[index]
+    #         V = velocity_list[index]
+    #         target = Robot.EndToAngle( position, frame='Cartesian') # theta1, theta2, theta3
+    #         t_list = np.array([0, T, T+1.0, T+1.1])
+    #         (p_mja, p_mjp, p_angular_mja, p_angular_mjp, p_angular_mjl, t_stamp) = Robot.PathPlanning( time_point=0, T_go=T, T_back=1.0, T_steady=0.2,
+    #                                                         angle=angle, velocity_initial=np.array([0, 0, 0]), 
+    #                                                         acceleration_initial=np.array([0, 0, 0]),
+    #                                                         target=target, frequency=100 )
+    #         GetPlot(p_mja, p_mjp, p_angular_mja, p_angular_mjp, p_angular_mjl, t_list, 0.01, index)
+    RG = RobotGeometry()
+    (p, v, a, j, theta, t_stamp) = RG.PathPlanning(time_point=50, angle=[-0.1981112,0.99263366,0.65627032], velocity_initial=[-0.27871242,0.17159836,-0.28683371], acceleration_initial=[6.18824994,-0.04379154,0.07319935], T_go=1.1099999999999999, target=[0.98466532,1.23982882,0.36010159])
+    # (p, v, a, j, theta, t_stamp) = RG.PathPlanning(time_point=0, angle=[-0.1981112,0.99263366,0.65627032], T_go=1.1099999999999999-0.5, target=[0.98466532,1.23982882,0.36010159])
+    
+    legend_position = 'lower right'
+    fig = plt.figure(figsize=(18, 18))
+
+    ax_position0 = fig.add_subplot(311)
+    plt.xlabel(r'Time $t$ in s')
+    plt.ylabel(r'Position of Dof_0 in degree')
+    line = []
+    line_temp, = ax_position0.plot(t_stamp, theta[0, :] * 180 / math.pi, linewidth=2, linestyle='dashed', label=r'Pos_Dof0_des')
+    line.append( line_temp )
+    plt.legend(handles=line, loc=legend_position, shadow=True)
+        
+    ax_position1 = fig.add_subplot(312)
+    plt.xlabel(r'Time $t$ in s')
+    plt.ylabel(r'Position of Dof_1 in degree')
+    line = []
+    line_temp, = ax_position1.plot(t_stamp, theta[1, :] * 180 / math.pi, linewidth=2, label=r'Pos_Dof1_des')
+    line.append( line_temp )
+    plt.legend(handles=line, loc=legend_position, shadow=True)
+    
+    ax_position2 = fig.add_subplot(313)
+    plt.xlabel(r'Time $t$ in s')
+    plt.ylabel(r'Position of Dof_2 in degree')
+    line = []
+    line_temp, = ax_position2.plot(t_stamp, theta[2, :] * 180 / math.pi, linewidth=2, label=r'Pos_Dof2_des')
+    line.append( line_temp )
+    plt.legend(handles=line, loc=legend_position, shadow=True)
+
+    plt.suptitle('Joint Space Trajectory Tracking Performance')               
+    plt.show()

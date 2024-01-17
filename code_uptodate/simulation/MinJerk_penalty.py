@@ -247,7 +247,7 @@ def GetPath(x_temp, v_temp, a_temp, t_temp, m, n, step):
 def PathPlanning(x_list, v_list, a_list, t_list, step, m_list, n_list):
   nr_dof = x_list.shape[0]
   nr_point = x_list.shape[1]
-  t_stamp = np.linspace(t_list[0], t_list[-1], int(t_list[-1]/step)+1, endpoint=True)
+  t_stamp = np.linspace(t_list[0], t_list[-1], int((t_list[-1]-t_list[0])/step)+1, endpoint=True)
 
   position = np.zeros((nr_dof, len(t_stamp)))
   velocity = np.zeros((nr_dof, len(t_stamp)))
@@ -265,12 +265,13 @@ def PathPlanning(x_list, v_list, a_list, t_list, step, m_list, n_list):
   for i_point in range(1, nr_point):
     
     idx_1 = idx_2
-    idx_2 = int((t_list[i_point]-t_list[i_point-1])/step) + 1
+    idx_2 = int((t_list[i_point]-t_list[0])/step) + 1
     
     [p, v, a, j] = GetPath(x_list[:, i_point-1:i_point+1], 
                            v_list[:, i_point-1:i_point+1], 
-                           a_list[:, i_point-1:i_point+1], 
+                           a_list[:, i_point-1:i_point+1],
                            t_list[i_point-1:i_point+1], 
+                          #  (np.array(t_list[i_point-1:i_point+1])-t_list[0]).tolist(), 
                            m_list[:, i_point-1], 
                            n_list[:, i_point-1], step)
 

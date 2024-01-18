@@ -1,6 +1,6 @@
 # pamy_coding
 
-## Files either new or changed
+## Files either new or changedP
 
 ### common module changes
 MinJerk_penalty.py

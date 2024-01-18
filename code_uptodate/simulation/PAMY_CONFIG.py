@@ -19,7 +19,7 @@ The initial posture of pamy.
 All the values are absolute values in angular space in rad.
 '''
 # GLOBAL_INITIAL = np.array([0.000000, 0.514884, 0.513349, 0.0000])
-GLOBAL_INITIAL = np.array([0, 0.8, 0.8, 0])
+GLOBAL_INITIAL = np.array([0, 1.0, 1.0, 0])
 # %%
 def FulfillZeros( a ):
     b = np.zeros(  [len(a), len(max(a, key = lambda x: len(x)))]  )
@@ -226,15 +226,16 @@ strategy_list = np.array([1, 1, 1, 1])
 #             [-8.228984656729296e+04, -1.304087541343074e+04/2, -4.841489121599795e+02],
 #             [-36752.24956301624,     -246064.5612272051/10,    -531.2866756516057],
 #             [3.422187330173758e+04,  1.673663594798479e+05/10, 73.238165769446297]]
-# pid_list = FulfillZeros( pid_list )
-pid_list = [[-3998,  -15108, -264.5],
-            [-3998,  -10108, -264.5],
-            [-3998,  -8008, -264.5],
+
+# pid_list = [[-3998,  -15108, -264.5],
+#             [-3998,  -10108, -264.5],
+#             [-3998,  -8008, -264.5],
+#             [0, 0, 0]] # from simulink
+
+pid_list = [[-8368.8,  -66950.4*0.8, -261.525],
+            [-16500,  0, 0],
+            [-50000,  0, 0],
             [0, 0, 0]]
-# pid_list = [[-8368.8,  -66950.4*0.8, -261.525],
-#             [-30000,  0, 0],
-#             [-50000,  0, 0],
-#             [0, 0, 0]]
 pid_list = FulfillZeros( pid_list )
 
 # delta_d_list   = np.array([1e-9, 1e-11, 1e-8, 1e-9]) 

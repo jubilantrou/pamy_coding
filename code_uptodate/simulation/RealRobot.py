@@ -474,7 +474,8 @@ class Robot:
     
     def PIDTesting(self, choice, amp, t_start, t_duration, frequency_frontend=100, frequency_backend=500):
         '''
-        used to help with finding proper PID parameters, with modification based on the function AngleInitialization above
+        This function gives a step signal to the object to help with finding proper PID parameters, 
+        with modification based on the function AngleInitialization() above.
         '''
         pid = np.copy( self.pid_list )
 
@@ -491,45 +492,32 @@ class Robot:
                                   o80.Iteration(iteration-iterations_per_command),
                                   o80.Mode.QUEUE)
         obs_begin = self.frontend.pulse_and_wait()
-
-        theta_begin = obs_begin.get_positions()
-        theta = theta_begin
+        theta = obs_begin.get_positions()
+        theta_begin = np.copy(theta)
+        
         res_i = 0
-        # angle_delta_pre = np.zeros(len(self.dof_list)).reshape(len(self.dof_list),-1)
         angle_delta_pre = 0
 
         count = 0
+        input = np.array([])
         while count <= t_duration*frequency_frontend:
-            # pressure_ago = self.anchor_ago_list
-            # pressure_ant = self.anchor_ant_list
-
             if count <= t_start*frequency_frontend:
                 target = theta_begin[choice]
             else:
                 target = theta_begin[choice] + amp
+            input = np.append(input, target)
             
             angle_delta = target - theta[choice]
-
             res_d = ( angle_delta - angle_delta_pre ) / t
             res_i += angle_delta * t
-            angle_delta_pre = np.copy( angle_delta )
+            angle_delta_pre = angle_delta
 
             feedback = pid[choice, 0] * angle_delta\
                      + pid[choice, 1] * res_i\
                      + pid[choice, 2] * res_d
             
-            pressure_ago = np.array([], dtype=int)
-            pressure_ant = np.array([], dtype=int)
-
-            for dof in self.dof_list:
-                if dof==choice:
-                    diff = feedback
-                else:
-                    diff = 0
-                pressure_ago = np.append(pressure_ago, int( self.anchor_ago_list[dof] + diff ))
-                pressure_ant = np.append(pressure_ant, int( self.anchor_ant_list[dof] - diff ))
-            # pressure_ago[choice] += feedback
-            # pressure_ant[choice] -= feedback
+            pressure_ago = [int(self.anchor_ago_list[i]+feedback) if i==choice else self.anchor_ago_list[i] for i in self.dof_list]
+            pressure_ant = [int(self.anchor_ant_list[i]-feedback) if i==choice else self.anchor_ant_list[i] for i in self.dof_list]
             
             self.frontend.add_command(pressure_ago, pressure_ant,
                                       o80.Iteration(iteration),
@@ -541,18 +529,15 @@ class Robot:
             observation = self.frontend.pulse_and_wait()
 
             theta = np.array(observation.get_positions())
-
             iteration += iterations_per_command
             count += 1
 
         iteration_end = iteration
             
-        position = np.array([])
         time = np.array([])
-        input = np.array([])
-        iteration = iteration_begin
+        position = np.array([])
 
-        count = 0
+        iteration = iteration_begin
         while iteration < iteration_end:
             observation = self.frontend.read(iteration)
             obs_position = np.array( observation.get_positions() )
@@ -560,16 +545,10 @@ class Robot:
 
             position = np.append(position, obs_position[choice])
             time = np.append(time, obs_time)
-            if count <= t_start*frequency_frontend:
-                input = np.append(input, theta_begin[choice])
-            else:
-                input = np.append(input, theta_begin[choice]+amp)
 
             iteration += iterations_per_command
-            count += 1
         
         time = time-time[0]
-
         return time, input, position
         
     def ILC(self, number_iteration, GLOBAL_INITIAL, mode_name='none'):

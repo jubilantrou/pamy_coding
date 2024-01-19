@@ -89,7 +89,7 @@ def get_random():
     theta[0] = random.choice([random.randrange(-750, -250)/10, random.randrange(250, 750)/10])
     theta[1] = random.choice([random.randrange(100, 350)/10, random.randrange(550, 800)/10])
     theta[2] = random.choice([random.randrange(100, 350)/10, random.randrange(550, 800)/10])
-    t        = random.randrange(90, 110)/100
+    t        = random.randrange(90, 100)/100
     theta    = theta * math.pi/180
     return (t, theta)
 
@@ -283,383 +283,321 @@ print(idx_list)
 # )
 
 for i_epoch in range(nr_epoch):
-    # root_epoch = root_learning + '/' + str(i_epoch)
-    # mkdir(root_epoch) 
+    # Pamy   = PAMY_CONFIG.build_pamy(frontend=frontend)
+    (t, angle) = get_random()
+    (p, v, a, j, theta, t_stamp, theta_list, t_stamp_list, p_int_record, time_update_record) = RG.updatedPathPlanning(time_point=0, angle=PAMY_CONFIG.GLOBAL_INITIAL, T_go=t, target=angle)
+    # (p, v, a, j, theta, t_stamp) = RG.PathPlanning(time_point=0, angle=PAMY_CONFIG.GLOBAL_INITIAL, T_go=t, target=angle)
 
-    # if i_epoch == 0:  # initialization
-    #     Pamy   = PAMY_CONFIG.build_pamy(frontend=frontend)
-    #     (t, angle) = get_random()
-    #     (p, v, a, j, theta, t_stamp) = RG.PathPlanning(angle=PAMY_CONFIG.GLOBAL_INITIAL, T_go=t, target=angle)
-    #     theta = np.vstack((theta, np.zeros((1, theta.shape[1]))))
-    #     theta = theta - theta[:, 0].reshape(-1, 1)
-    #     Pamy.ImportTrajectory(theta, t_stamp)  #  import the desired trajectories and the time stamp
-    #     Pamy.GetOptimizer_convex(angle_initial_read, nr_channel=nr_channel, coupling=coupling)
+    print('targets:')
+    for ele in p_int_record:
+        print(ele/math.pi*180)
+    print('time interval:')
+    for ele in t_stamp_list:
+        print(ele[0], ele[-1])
+    print('update moments:')
+    for ele in time_update_record:
+        print(ele)
 
-    #     # index   = get_index(train_index, index_used)
-    #     # index_used.append(index)
-    #     # Pamy    = Pamy_train[train_index.index(index)]  # find the position of index in train_index
-    #     # t_stamp = Pamy.t_stamp
+    # t = traj_house[i_it]['t']
+    # angle = traj_house[i_it]['angle']
+    # p = traj_house[i_it]['p']
+    # v = traj_house[i_it]['v']
+    # a = traj_house[i_it]['a']
+    # j = traj_house[i_it]['j']
+    # theta = traj_house[i_it]['theta']
+    # t_stamp = traj_house[i_it]['t_stamp']
+    # p_int = traj_house[i_it]['p_int']
 
-    #     (W_list, u_ini) = get_initial_guess(Pamy, cnn_list)
-    #     sum_1_list = [np.zeros((len(W_list[0]), len(W_list[0])))] * 3
-    #     sum_2_list = [np.zeros((len(W_list[0]), len(W_list[0])))] * 3
+    # print('target:')
+    # print(angle/math.pi*180)
+    # (_, p_int) = RG.AngleToEnd(angle=angle,frame='Cartesian')
+    # hit_point = handle.frontends["hit_point"]
+    # hit_point.add_command(p_int.reshape(-1).tolist(),(0,0,0),o80.Duration_us.seconds(1),o80.Mode.QUEUE)
+    # hit_point.pulse_and_wait()
 
-    #     u = get_prediction(cnn_list, Pamy.y_desired)
+    theta = np.vstack((theta, np.zeros((1, theta.shape[1]))))
+    theta_ = theta
+    # print('part traj overview')
+    # print(np.min(theta,axis=1))
+    # print(np.max(theta,axis=1))
+    theta = theta - theta[:, 0].reshape(-1, 1)
+    Pamy.ImportTrajectory(theta, t_stamp)  #  import the desired trajectories and the time stamp
+    Pamy.GetOptimizer_convex(angle_initial_read, nr_channel=nr_channel, coupling=coupling)
+    
+    # index = get_index(train_index, index_used)
+    # index_used.append(index)
 
-    #     fig, axs = plt.subplots(3, 1, figsize=(40, 20))
-    #     for dof in range(3):
-    #         line = []
-    #         ax = axs[dof]
-    #         ax.set_xlabel(r'Time $t$ in s')
-    #         ax.set_ylabel(r'Normalized input')
-    #         line_temp, = ax.plot(t_stamp, u[dof, :].flatten(), label=r'prediction')
-    #         line.append(line_temp)
-    #         line_temp, = ax.plot(t_stamp, u_ini[dof].flatten(), label=r'from linear model')
-    #         line.append(line_temp)
-    #         ax.grid()
-    #         ax.legend(handles=line, loc='upper right')
-    #     plt.show()
+    # Pamy    = Pamy_train[train_index.index(index)]  # find the position of index in train_index
+    # t_stamp = Pamy.t_stamp
 
-    #     for nr_round in range(1, 6):
-    #         u = get_prediction(cnn_list, Pamy.y_desired)
-    #         (y, ff, fb, obs_ago, obs_ant) = Pamy.online_convex_optimization(u, coupling=coupling, learning_mode='u')
-    #         y_out = y - y[:, 0].reshape(-1, 1)
+    u = get_prediction(cnn_list, Pamy.y_desired, PAMY_CONFIG.pressure_limit)
 
-    #         for dof in range(3):  
-    #             [hessian, gradient, sum_1_list[dof], sum_2_list[dof], X_list] = get_newton_method(nr_round, dof, Pamy, sum_1_list, sum_2_list, y_out, alpha_list, epsilon_list, cnn_list)
-    #             sk                                                            = get_step_size(nr_round, dof, step_size_version=step_size_version)
-    #             W_list[dof]                                                   = get_update(W_list[dof], sk, hessian, gradient)
-    #         cnn_list = set_parameters(W_list, cnn_list, idx_list, shape_list)
+    (y, ff, fb, obs_ago, obs_ant) = Pamy.online_convex_optimization(u, coupling=coupling, learning_mode='u')
+    def get_difference(x):
+        y = np.zeros(x.shape)
+        for i in range(1, y.shape[1]):
+            y[:, i] = (x[:, i]-x[:, i-1])/(t_stamp[i]-t_stamp[i-1])
+        return y
+    v_y = get_difference(y)
+    a_y = get_difference(v_y)
+    y_cylinder = np.zeros((3,y.shape[1]))
+    for i in range(y.shape[1]):
+        (_,end) = RG.AngleToEnd(y[:3,i], frame='Cylinder')
+        y_cylinder[:,i] = end
+    # y = np.hstack([angle_initial_read.reshape(4,1), y[:,:-1]])
+    # print('observer for pressure here!')
+    # print(obs_ago[0,::10])
+    # print(obs_ant[0,::10])
+    y_out = y - y[:, 0].reshape(-1, 1)
 
-    #         print('initialization')
-    #         Pamy.AngleInitialization(PAMY_CONFIG.GLOBAL_INITIAL)
-    #         Pamy.PressureInitialization()
-    #         angle_initial_read =np.array(frontend.latest().get_positions())
+    # plot the reference trajectory and the real trajectory
 
-    #     index_used = []
-    #     # sum_1_list = [np.zeros((len(W_list[0]), len(W_list[0])))] * 3
-    #     # sum_2_list = [np.zeros((len(W_list[0]), len(W_list[0])))] * 3
+    # TODO: not exactly the same starting point
+    # theta_ starts with pos_init while y starts without
+    # have added, but still to check the starting point choice and the pressure given style
 
-    for i_it in range(nr_iteration):
+    if_plot = 1
+    if_both = 0
+    if_joint = 0
+    if_cylinder = 0
+    plots = []
 
-        # Pamy   = PAMY_CONFIG.build_pamy(frontend=frontend)
-        (t, angle) = get_random()
-        (p, v, a, j, theta, t_stamp, theta_list, t_stamp_list, p_int_record, time_update_record) = RG.updatedPathPlanning(time_point=0, angle=PAMY_CONFIG.GLOBAL_INITIAL, T_go=t, target=angle)
-        # (p, v, a, j, theta, t_stamp) = RG.PathPlanning(time_point=0, angle=PAMY_CONFIG.GLOBAL_INITIAL, T_go=t, target=angle)
+    if if_plot:
+        legend_position = 'best'
+        fig = plt.figure(figsize=(18, 18))
 
-        print('targets:')
-        for ele in p_int_record:
-            print(ele/math.pi*180)
-        print('time interval:')
-        for ele in t_stamp_list:
-            print(ele[0], ele[-1])
-        print('update moments:')
-        for ele in time_update_record:
-            print(ele)
-
-        # t = traj_house[i_it]['t']
-        # angle = traj_house[i_it]['angle']
-        # p = traj_house[i_it]['p']
-        # v = traj_house[i_it]['v']
-        # a = traj_house[i_it]['a']
-        # j = traj_house[i_it]['j']
-        # theta = traj_house[i_it]['theta']
-        # t_stamp = traj_house[i_it]['t_stamp']
-        # p_int = traj_house[i_it]['p_int']
-
-        # print('target:')
-        # print(angle/math.pi*180)
-        # (_, p_int) = RG.AngleToEnd(angle=angle,frame='Cartesian')
-        # hit_point = handle.frontends["hit_point"]
-        # hit_point.add_command(p_int.reshape(-1).tolist(),(0,0,0),o80.Duration_us.seconds(1),o80.Mode.QUEUE)
-        # hit_point.pulse_and_wait()
-
-        theta = np.vstack((theta, np.zeros((1, theta.shape[1]))))
-        theta_ = theta
-        # print('part traj overview')
-        # print(np.min(theta,axis=1))
-        # print(np.max(theta,axis=1))
-        theta = theta - theta[:, 0].reshape(-1, 1)
-        Pamy.ImportTrajectory(theta, t_stamp)  #  import the desired trajectories and the time stamp
-        Pamy.GetOptimizer_convex(angle_initial_read, nr_channel=nr_channel, coupling=coupling)
+        ax_position0 = fig.add_subplot(311)
+        plt.xlabel(r'Time $t$ in s')
+        plt.ylabel(r'Position of Dof_0 in degree')
+        line = []
+        line_temp, = ax_position0.plot(t_stamp, y[0, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,10)), label=r'Pos_Dof0_out')
+        line.append( line_temp )
+        line_temp, = ax_position0.plot(t_stamp, theta_[0, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,10)), label=r'Pos_Dof0_des')
+        line.append( line_temp )
+        for j in range(len(theta_list)):
+            line_temp, = ax_position0.plot(t_stamp_list[j], theta_list[j][0, :] * 180 / math.pi, linewidth=2, label='Dof0_traj_candidate_'+str(j+1))
+            line.append( line_temp )
+        plt.legend(handles=line, loc=legend_position, shadow=True)
+            
+        ax_position1 = fig.add_subplot(312)
+        plt.xlabel(r'Time $t$ in s')
+        plt.ylabel(r'Position of Dof_1 in degree')
+        line = []
+        line_temp, = ax_position1.plot(t_stamp, y[1, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,10)), label=r'Pos_Dof1_out')
+        line.append( line_temp )
+        line_temp, = ax_position1.plot(t_stamp, theta_[1, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,10)), label=r'Pos_Dof1_des')
+        line.append( line_temp )
+        for j in range(len(theta_list)):
+            line_temp, = ax_position1.plot(t_stamp_list[j], theta_list[j][1, :] * 180 / math.pi, linewidth=2, label='Dof1_traj_candidate_'+str(j+1))
+            line.append( line_temp )
+        plt.legend(handles=line, loc=legend_position, shadow=True)
         
-        # index = get_index(train_index, index_used)
-        # index_used.append(index)
+        ax_position2 = fig.add_subplot(313)
+        plt.xlabel(r'Time $t$ in s')
+        plt.ylabel(r'Position of Dof_2 in degree')
+        line = []
+        line_temp, = ax_position2.plot(t_stamp, y[2, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,10)), label=r'Pos_Dof2_out')
+        line.append( line_temp )
+        line_temp, = ax_position2.plot(t_stamp, theta_[2, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,10)), label=r'Pos_Dof2_des')
+        line.append( line_temp )
+        for j in range(len(theta_list)):
+            line_temp, = ax_position2.plot(t_stamp_list[j], theta_list[j][2, :] * 180 / math.pi, linewidth=2, label='Dof2_traj_candidate_'+str(j+1))
+            line.append( line_temp )
+        plt.legend(handles=line, loc=legend_position, shadow=True)
 
-        # Pamy    = Pamy_train[train_index.index(index)]  # find the position of index in train_index
-        # t_stamp = Pamy.t_stamp
+        plt.suptitle('Joint Space Trajectory Tracking Performance'+' Iter ')
+        # plots.append(wandb.Image(plt, caption="matplotlib image"))                
+        plt.show()
 
-        u = get_prediction(cnn_list, Pamy.y_desired, PAMY_CONFIG.pressure_limit)
-
-        (y, ff, fb, obs_ago, obs_ant) = Pamy.online_convex_optimization(u, coupling=coupling, learning_mode='u')
-        def get_difference(x):
-            y = np.zeros(x.shape)
-            for i in range(1, y.shape[1]):
-                y[:, i] = (x[:, i]-x[:, i-1])/(t_stamp[i]-t_stamp[i-1])
-            return y
-        v_y = get_difference(y)
-        a_y = get_difference(v_y)
-        y_cylinder = np.zeros((3,y.shape[1]))
-        for i in range(y.shape[1]):
-            (_,end) = RG.AngleToEnd(y[:3,i], frame='Cylinder')
-            y_cylinder[:,i] = end
-        # y = np.hstack([angle_initial_read.reshape(4,1), y[:,:-1]])
-        # print('observer for pressure here!')
-        # print(obs_ago[0,::10])
-        # print(obs_ant[0,::10])
-        y_out = y - y[:, 0].reshape(-1, 1)
-
-        # plot the reference trajectory and the real trajectory
-
-        # TODO: not exactly the same starting point
-        # theta_ starts with pos_init while y starts without
-        # have added, but still to check the starting point choice and the pressure given style
-
-        if_plot = 1
-        if_both = 0
-        if_joint = 0
-        if_cylinder = 0
-        plots = []
-
-        if if_plot:
-            legend_position = 'best'
+        if if_both:
             fig = plt.figure(figsize=(18, 18))
 
-            ax_position0 = fig.add_subplot(311)
+            ax_position00 = fig.add_subplot(311)
             plt.xlabel(r'Time $t$ in s')
-            plt.ylabel(r'Position of Dof_0 in degree')
+            plt.ylabel(r'Position of angle $\theta$ in degree')
             line = []
-            line_temp, = ax_position0.plot(t_stamp, y[0, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,10)), label=r'Pos_Dof0_out')
+            line_temp, = ax_position00.plot(t_stamp, y_cylinder[0, :] * 180 / math.pi, linewidth=2, label=r'Pos_$\theta$_out')
             line.append( line_temp )
-            line_temp, = ax_position0.plot(t_stamp, theta_[0, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,10)), label=r'Pos_Dof0_des')
+            line_temp, = ax_position00.plot(t_stamp, p[0, :] * 180 / math.pi, linewidth=2, label=r'Pos_$\theta$_des')
             line.append( line_temp )
-            for j in range(len(theta_list)):
-                line_temp, = ax_position0.plot(t_stamp_list[j], theta_list[j][0, :] * 180 / math.pi, linewidth=2, label='Dof0_traj_candidate_'+str(j+1))
-                line.append( line_temp )
             plt.legend(handles=line, loc=legend_position, shadow=True)
                 
-            ax_position1 = fig.add_subplot(312)
+            ax_position11 = fig.add_subplot(312)
             plt.xlabel(r'Time $t$ in s')
-            plt.ylabel(r'Position of Dof_1 in degree')
+            plt.ylabel(r'Position of radius $\eta$ in m')
             line = []
-            line_temp, = ax_position1.plot(t_stamp, y[1, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,10)), label=r'Pos_Dof1_out')
+            line_temp, = ax_position11.plot(t_stamp, y_cylinder[1, :], linewidth=2, label=r'Pos_$\eta$_out')
             line.append( line_temp )
-            line_temp, = ax_position1.plot(t_stamp, theta_[1, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,10)), label=r'Pos_Dof1_des')
+            line_temp, = ax_position11.plot(t_stamp, p[1, :], linewidth=2, label=r'Pos_$\eta$_des')
             line.append( line_temp )
-            for j in range(len(theta_list)):
-                line_temp, = ax_position1.plot(t_stamp_list[j], theta_list[j][1, :] * 180 / math.pi, linewidth=2, label='Dof1_traj_candidate_'+str(j+1))
-                line.append( line_temp )
             plt.legend(handles=line, loc=legend_position, shadow=True)
             
-            ax_position2 = fig.add_subplot(313)
+            ax_position22 = fig.add_subplot(313)
             plt.xlabel(r'Time $t$ in s')
-            plt.ylabel(r'Position of Dof_2 in degree')
+            plt.ylabel(r'Position of height $\xi$ in degree')
             line = []
-            line_temp, = ax_position2.plot(t_stamp, y[2, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,10)), label=r'Pos_Dof2_out')
+            line_temp, = ax_position22.plot(t_stamp, y_cylinder[2, :], linewidth=2, label=r'Pos_$\xi$_out')
             line.append( line_temp )
-            line_temp, = ax_position2.plot(t_stamp, theta_[2, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,10)), label=r'Pos_Dof2_des')
+            line_temp, = ax_position22.plot(t_stamp, p[2, :], linewidth=2, label=r'Pos_$\xi$_des')
             line.append( line_temp )
-            for j in range(len(theta_list)):
-                line_temp, = ax_position2.plot(t_stamp_list[j], theta_list[j][2, :] * 180 / math.pi, linewidth=2, label='Dof2_traj_candidate_'+str(j+1))
-                line.append( line_temp )
             plt.legend(handles=line, loc=legend_position, shadow=True)
 
-            plt.suptitle('Joint Space Trajectory Tracking Performance'+' Iter '+str(i_it))
-            # plots.append(wandb.Image(plt, caption="matplotlib image"))                
-            plt.show()
+            plt.suptitle('Cylinder Space Trajectory Tracking Performance'+' Iter '+str(i_it))
+            plots.append(wandb.Image(plt, caption="matplotlib image"))                
+            # plt.show()
 
-            if if_both:
-                fig = plt.figure(figsize=(18, 18))
+        if if_joint:
+            fig = plt.figure(figsize=(18, 18))
 
-                ax_position00 = fig.add_subplot(311)
-                plt.xlabel(r'Time $t$ in s')
-                plt.ylabel(r'Position of angle $\theta$ in degree')
-                line = []
-                line_temp, = ax_position00.plot(t_stamp, y_cylinder[0, :] * 180 / math.pi, linewidth=2, label=r'Pos_$\theta$_out')
-                line.append( line_temp )
-                line_temp, = ax_position00.plot(t_stamp, p[0, :] * 180 / math.pi, linewidth=2, label=r'Pos_$\theta$_des')
-                line.append( line_temp )
-                plt.legend(handles=line, loc=legend_position, shadow=True)
-                    
-                ax_position11 = fig.add_subplot(312)
-                plt.xlabel(r'Time $t$ in s')
-                plt.ylabel(r'Position of radius $\eta$ in m')
-                line = []
-                line_temp, = ax_position11.plot(t_stamp, y_cylinder[1, :], linewidth=2, label=r'Pos_$\eta$_out')
-                line.append( line_temp )
-                line_temp, = ax_position11.plot(t_stamp, p[1, :], linewidth=2, label=r'Pos_$\eta$_des')
-                line.append( line_temp )
-                plt.legend(handles=line, loc=legend_position, shadow=True)
-                
-                ax_position22 = fig.add_subplot(313)
-                plt.xlabel(r'Time $t$ in s')
-                plt.ylabel(r'Position of height $\xi$ in degree')
-                line = []
-                line_temp, = ax_position22.plot(t_stamp, y_cylinder[2, :], linewidth=2, label=r'Pos_$\xi$_out')
-                line.append( line_temp )
-                line_temp, = ax_position22.plot(t_stamp, p[2, :], linewidth=2, label=r'Pos_$\xi$_des')
-                line.append( line_temp )
-                plt.legend(handles=line, loc=legend_position, shadow=True)
+            ax_velocity0 = fig.add_subplot(121)
+            plt.xlabel(r'Time $t$ in s')
+            plt.ylabel(r'Vel in rad/s')
+            line = []
+            line_temp, = ax_velocity0.plot(t_stamp[1:], v_y[0, 1:], linewidth=2, label=r'Vel_Dof0_out')
+            line.append( line_temp )
+            line_temp, = ax_velocity0.plot(t_stamp[1:], v_y[1, 1:], linewidth=2, label=r'Vel_Dof1_out')
+            line.append( line_temp )
+            line_temp, = ax_velocity0.plot(t_stamp[1:], v_y[2, 1:], linewidth=2, label=r'Vel_Dof2_out')
+            line.append( line_temp )
+            plt.legend(handles=line, loc=legend_position, shadow=True)
 
-                plt.suptitle('Cylinder Space Trajectory Tracking Performance'+' Iter '+str(i_it))
-                plots.append(wandb.Image(plt, caption="matplotlib image"))                
-                # plt.show()
+            ax_acceleration0 = fig.add_subplot(122)
+            plt.xlabel(r'Time $t$ in s')
+            plt.ylabel(r'Acc in rad/s^2')
+            line = []
+            line_temp, = ax_acceleration0.plot(t_stamp[1:], a_y[0, 1:], linewidth=2, label=r'Acc_Dof0_out')
+            line.append( line_temp )
+            line_temp, = ax_acceleration0.plot(t_stamp[1:], a_y[1, 1:], linewidth=2, label=r'Acc_Dof1_out')
+            line.append( line_temp )
+            line_temp, = ax_acceleration0.plot(t_stamp[1:], a_y[2, 1:], linewidth=2, label=r'Acc_Dof2_out')
+            line.append( line_temp )
+            plt.legend(handles=line, loc=legend_position, shadow=True)
 
-            if if_joint:
-                fig = plt.figure(figsize=(18, 18))
+            plt.suptitle('Joint Space Real Data'+' Iter '+str(i_it))                
+            plots.append(wandb.Image(plt, caption="matplotlib image"))
+            # plt.show()
 
-                ax_velocity0 = fig.add_subplot(121)
-                plt.xlabel(r'Time $t$ in s')
-                plt.ylabel(r'Vel in rad/s')
-                line = []
-                line_temp, = ax_velocity0.plot(t_stamp[1:], v_y[0, 1:], linewidth=2, label=r'Vel_Dof0_out')
-                line.append( line_temp )
-                line_temp, = ax_velocity0.plot(t_stamp[1:], v_y[1, 1:], linewidth=2, label=r'Vel_Dof1_out')
-                line.append( line_temp )
-                line_temp, = ax_velocity0.plot(t_stamp[1:], v_y[2, 1:], linewidth=2, label=r'Vel_Dof2_out')
-                line.append( line_temp )
-                plt.legend(handles=line, loc=legend_position, shadow=True)
+        if if_cylinder:
+            fig = plt.figure(figsize=(18, 18))
 
-                ax_acceleration0 = fig.add_subplot(122)
-                plt.xlabel(r'Time $t$ in s')
-                plt.ylabel(r'Acc in rad/s^2')
-                line = []
-                line_temp, = ax_acceleration0.plot(t_stamp[1:], a_y[0, 1:], linewidth=2, label=r'Acc_Dof0_out')
-                line.append( line_temp )
-                line_temp, = ax_acceleration0.plot(t_stamp[1:], a_y[1, 1:], linewidth=2, label=r'Acc_Dof1_out')
-                line.append( line_temp )
-                line_temp, = ax_acceleration0.plot(t_stamp[1:], a_y[2, 1:], linewidth=2, label=r'Acc_Dof2_out')
-                line.append( line_temp )
-                plt.legend(handles=line, loc=legend_position, shadow=True)
+            ax_velocity1 = fig.add_subplot(231)
+            plt.xlabel(r'Time $t$ in s')
+            plt.ylabel(r'Vel in rad/s')
+            line = []
+            line_temp, = ax_velocity1.plot(t_stamp, v[0, :], linewidth=2, label=r'Vel_$\theta$_des')
+            line.append( line_temp )
+            plt.legend(handles=line, loc=legend_position, shadow=True)
 
-                plt.suptitle('Joint Space Real Data'+' Iter '+str(i_it))                
-                plots.append(wandb.Image(plt, caption="matplotlib image"))
-                # plt.show()
+            ax_acceleration1 = fig.add_subplot(232)
+            plt.xlabel(r'Time $t$ in s')
+            plt.ylabel(r'Acc in rad/s^2')
+            line = []
+            line_temp, = ax_acceleration1.plot(t_stamp, a[0, :], linewidth=2, label=r'Acc_$\theta$_des')
+            line.append( line_temp )
+            plt.legend(handles=line, loc=legend_position, shadow=True)
 
-            if if_cylinder:
-                fig = plt.figure(figsize=(18, 18))
+            ax_jerk1 = fig.add_subplot(233)
+            plt.xlabel(r'Time $t$ in s')
+            plt.ylabel(r'Jerk in rad/s^3')
+            line = []
+            line_temp, = ax_jerk1.plot(t_stamp, j[0, :], linewidth=2, label=r'Jerk_$\theta$_des')
+            line.append( line_temp )
+            plt.legend(handles=line, loc=legend_position, shadow=True)
 
-                ax_velocity1 = fig.add_subplot(231)
-                plt.xlabel(r'Time $t$ in s')
-                plt.ylabel(r'Vel in rad/s')
-                line = []
-                line_temp, = ax_velocity1.plot(t_stamp, v[0, :], linewidth=2, label=r'Vel_$\theta$_des')
-                line.append( line_temp )
-                plt.legend(handles=line, loc=legend_position, shadow=True)
+            ax_velocity2 = fig.add_subplot(234)
+            plt.xlabel(r'Time $t$ in s')
+            plt.ylabel(r'Vel in m/s')
+            line = []
+            line_temp, = ax_velocity2.plot(t_stamp, v[1, :], linewidth=2, label=r'Vel_$\eta$_des')
+            line.append( line_temp )
+            line_temp, = ax_velocity2.plot(t_stamp, v[2, :], linewidth=2, label=r'Vel_$\xi$_des')
+            line.append( line_temp )
+            plt.legend(handles=line, loc=legend_position, shadow=True)
 
-                ax_acceleration1 = fig.add_subplot(232)
-                plt.xlabel(r'Time $t$ in s')
-                plt.ylabel(r'Acc in rad/s^2')
-                line = []
-                line_temp, = ax_acceleration1.plot(t_stamp, a[0, :], linewidth=2, label=r'Acc_$\theta$_des')
-                line.append( line_temp )
-                plt.legend(handles=line, loc=legend_position, shadow=True)
+            ax_acceleration2 = fig.add_subplot(235)
+            plt.xlabel(r'Time $t$ in s')
+            plt.ylabel(r'Acc in m/s^2')
+            line = []
+            line_temp, = ax_acceleration2.plot(t_stamp, a[1, :], linewidth=2, label=r'Acc_$\eta$_des')
+            line.append( line_temp )
+            line_temp, = ax_acceleration2.plot(t_stamp, a[2, :], linewidth=2, label=r'Acc_$\xi$_des')
+            line.append( line_temp )
+            plt.legend(handles=line, loc=legend_position, shadow=True)
 
-                ax_jerk1 = fig.add_subplot(233)
-                plt.xlabel(r'Time $t$ in s')
-                plt.ylabel(r'Jerk in rad/s^3')
-                line = []
-                line_temp, = ax_jerk1.plot(t_stamp, j[0, :], linewidth=2, label=r'Jerk_$\theta$_des')
-                line.append( line_temp )
-                plt.legend(handles=line, loc=legend_position, shadow=True)
+            ax_jerk2 = fig.add_subplot(236)
+            plt.xlabel(r'Time $t$ in s')
+            plt.ylabel(r'Jerk in m/s^3')
+            line = []
+            line_temp, = ax_jerk2.plot(t_stamp, j[1, :], linewidth=2, label=r'Jerk_$\eta$_des')
+            line.append( line_temp )
+            line_temp, = ax_jerk2.plot(t_stamp, j[2, :], linewidth=2, label=r'Jerk_$\xi$_des')
+            line.append( line_temp )
+            plt.legend(handles=line, loc=legend_position, shadow=True)
 
-                ax_velocity2 = fig.add_subplot(234)
-                plt.xlabel(r'Time $t$ in s')
-                plt.ylabel(r'Vel in m/s')
-                line = []
-                line_temp, = ax_velocity2.plot(t_stamp, v[1, :], linewidth=2, label=r'Vel_$\eta$_des')
-                line.append( line_temp )
-                line_temp, = ax_velocity2.plot(t_stamp, v[2, :], linewidth=2, label=r'Vel_$\xi$_des')
-                line.append( line_temp )
-                plt.legend(handles=line, loc=legend_position, shadow=True)
+            plt.suptitle('Cylinder Space Desired Data'+' Iter '+str(i_it))
+            plots.append(wandb.Image(plt, caption="matplotlib image"))                
+            # plt.show()
+        
+        wandb.log({'traj related plots': plots})
 
-                ax_acceleration2 = fig.add_subplot(235)
-                plt.xlabel(r'Time $t$ in s')
-                plt.ylabel(r'Acc in m/s^2')
-                line = []
-                line_temp, = ax_acceleration2.plot(t_stamp, a[1, :], linewidth=2, label=r'Acc_$\eta$_des')
-                line.append( line_temp )
-                line_temp, = ax_acceleration2.plot(t_stamp, a[2, :], linewidth=2, label=r'Acc_$\xi$_des')
-                line.append( line_temp )
-                plt.legend(handles=line, loc=legend_position, shadow=True)
+    # root_file = root_epoch + '/' + str(i_it) 
+    # file = open(root_file, 'wb')
+    # pickle.dump(t_stamp, file, -1)
+    # pickle.dump(t_stamp, file, -1)
+    # pickle.dump(angle_initial_read, file, -1)
+    # pickle.dump(y, file, -1)
+    # pickle.dump(Pamy.y_desired, file, -1)
+    # pickle.dump(ff, file, -1)
+    # pickle.dump(fb, file, -1)
+    # pickle.dump(obs_ago, file, -1)
+    # pickle.dump(obs_ant, file, -1)
+    # pickle.dump(W_list, file, -1)
+    # pickle.dump(index, file, -1)
+    # file.close()
 
-                ax_jerk2 = fig.add_subplot(236)
-                plt.xlabel(r'Time $t$ in s')
-                plt.ylabel(r'Jerk in m/s^3')
-                line = []
-                line_temp, = ax_jerk2.plot(t_stamp, j[1, :], linewidth=2, label=r'Jerk_$\eta$_des')
-                line.append( line_temp )
-                line_temp, = ax_jerk2.plot(t_stamp, j[2, :], linewidth=2, label=r'Jerk_$\xi$_des')
-                line.append( line_temp )
-                plt.legend(handles=line, loc=legend_position, shadow=True)
+    print('begin {},{}. optimization'.format(i_epoch, i_it))
+    # nr_round = i_epoch * len(train_index) + i_it + 1 + 5
+    W_list = [None] * 3
+    for i in range(3):    
+        W = []
+        [W.append(param.data.view(-1)) for param in cnn_list[i].parameters()]
+        W = torch.cat(W)
+        W_list[i] = W.cpu().numpy().reshape(-1, 1)
+    part3 = get_grads_list(get_dataset(Pamy.y_desired), cnn_list)
+    part2 = [Pamy.O_list[i].Bu for i in PAMY_CONFIG.dof_list]
+    part1_temp = y-theta_
+    part1 = [part1_temp[i].reshape(1,-1) for i in range(len(part1_temp))]
+    loss = [np.linalg.norm(part1_temp[i].reshape(1,-1)) for i in range(len(part1_temp))]
+    step_list = [5e-3, 5e-3, 5e-3]
+    for dof in range(3):  # update the linear model b
+        W_list[dof] = W_list[dof] - step_list[dof]*PAMY_CONFIG.pressure_limit[dof]*(part1[dof]@part2[dof]@part3[dof]).reshape(-1, 1)
+    #     '''
+    #     b = b - s_k * pinv(1/t*sum(L.T * L)+alpha/t*sum(X.T * X)+epsilon*I) * L.T * (y_out - y_des)
+    #     '''
 
-                plt.suptitle('Cylinder Space Desired Data'+' Iter '+str(i_it))
-                plots.append(wandb.Image(plt, caption="matplotlib image"))                
-                # plt.show()
-            
-            wandb.log({'traj related plots': plots})
+    #     [hessian, gradient, sum_1_list[dof], sum_2_list[dof], X_list] = get_newton_method(nr_round, dof, Pamy, sum_1_list, sum_2_list, y_out, alpha_list, epsilon_list, cnn_list)
+    #     sk                                                            = get_step_size(nr_round, dof, step_size_version=step_size_version)
+    #     W_list[dof]                                                   = get_update(W_list[dof], sk, hessian, gradient)
+    #     # W_list[dof]                                                   = get_projection(dof, W_list[dof], X_list[dof])
+    cnn_list = set_parameters(W_list, cnn_list, idx_list, shape_list)
+    print('end {},{}. optimization'.format(i_epoch, i_it))
+    print('loss:')
+    print(loss)
+    # wandb.log({'loss_0': loss[0], 'loss_1': loss[1], 'loss_2': loss[2]}, i_it+1)
 
-        # root_file = root_epoch + '/' + str(i_it) 
-        # file = open(root_file, 'wb')
-        # pickle.dump(t_stamp, file, -1)
-        # pickle.dump(t_stamp, file, -1)
-        # pickle.dump(angle_initial_read, file, -1)
-        # pickle.dump(y, file, -1)
-        # pickle.dump(Pamy.y_desired, file, -1)
-        # pickle.dump(ff, file, -1)
-        # pickle.dump(fb, file, -1)
-        # pickle.dump(obs_ago, file, -1)
-        # pickle.dump(obs_ant, file, -1)
-        # pickle.dump(W_list, file, -1)
-        # pickle.dump(index, file, -1)
-        # file.close()
+    Pamy.AngleInitialization(PAMY_CONFIG.GLOBAL_INITIAL)
+    # Pamy.PressureInitialization()
+    angle_initial_read =np.array(frontend.latest().get_positions())
+    print('prepared for next training')
+    print('____________')
+    print('____________')
 
-        print('begin {},{}. optimization'.format(i_epoch, i_it))
-        # nr_round = i_epoch * len(train_index) + i_it + 1 + 5
-        W_list = [None] * 3
-        for i in range(3):    
-            W = []
-            [W.append(param.data.view(-1)) for param in cnn_list[i].parameters()]
-            W = torch.cat(W)
-            W_list[i] = W.cpu().numpy().reshape(-1, 1)
-        part3 = get_grads_list(get_dataset(Pamy.y_desired), cnn_list)
-        part2 = [Pamy.O_list[i].Bu for i in PAMY_CONFIG.dof_list]
-        part1_temp = y-theta_
-        part1 = [part1_temp[i].reshape(1,-1) for i in range(len(part1_temp))]
-        loss = [np.linalg.norm(part1_temp[i].reshape(1,-1)) for i in range(len(part1_temp))]
-        step_list = [5e-3, 5e-3, 5e-3]
-        for dof in range(3):  # update the linear model b
-            W_list[dof] = W_list[dof] - step_list[dof]*PAMY_CONFIG.pressure_limit[dof]*(part1[dof]@part2[dof]@part3[dof]).reshape(-1, 1)
-        #     '''
-        #     b = b - s_k * pinv(1/t*sum(L.T * L)+alpha/t*sum(X.T * X)+epsilon*I) * L.T * (y_out - y_des)
-        #     '''
-
-        #     [hessian, gradient, sum_1_list[dof], sum_2_list[dof], X_list] = get_newton_method(nr_round, dof, Pamy, sum_1_list, sum_2_list, y_out, alpha_list, epsilon_list, cnn_list)
-        #     sk                                                            = get_step_size(nr_round, dof, step_size_version=step_size_version)
-        #     W_list[dof]                                                   = get_update(W_list[dof], sk, hessian, gradient)
-        #     # W_list[dof]                                                   = get_projection(dof, W_list[dof], X_list[dof])
-        cnn_list = set_parameters(W_list, cnn_list, idx_list, shape_list)
-        print('end {},{}. optimization'.format(i_epoch, i_it))
-        print('loss:')
-        print(loss)
-        # wandb.log({'loss_0': loss[0], 'loss_1': loss[1], 'loss_2': loss[2]}, i_it+1)
-
-        Pamy.AngleInitialization(PAMY_CONFIG.GLOBAL_INITIAL)
-        # Pamy.PressureInitialization()
-        angle_initial_read =np.array(frontend.latest().get_positions())
-        print('prepared for next training')
-        print('____________')
-        print('____________')
-    
-    # index_used = [] 
-    # root_model_epoch = root_model + '/' + str(i_epoch)  # save the model at each epoch
-    # mkdir(root_model_epoch)
-    # wandb.finish() 
-    # for dof in range(3):
-    #     cnn = cnn_list[dof]
-    #     root_file = '/home/mtian/training_log_temp/model' + str(i_epoch) + str(dof)
-    #     mkdir(root_file)
-    #     torch.save(cnn.state_dict(), root_file)
-# %% Verify
-# verify(Pamy_train, train_index, path=root_verify, name='train', b_list=b_list)
-# verify(Pamy_test, test_index, path=root_verify, name='test', b_list=b_list)
+# index_used = [] 
+# root_model_epoch = root_model + '/' + str(i_epoch)  # save the model at each epoch
+# mkdir(root_model_epoch)
+# wandb.finish() 
+# for dof in range(3):
+#     cnn = cnn_list[dof]
+#     root_file = '/home/mtian/training_log_temp/model' + str(i_epoch) + str(dof)
+#     mkdir(root_file)
+#     torch.save(cnn.state_dict(), root_file)

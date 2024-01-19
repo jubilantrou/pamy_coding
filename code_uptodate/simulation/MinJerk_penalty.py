@@ -265,7 +265,7 @@ def PathPlanning(x_list, v_list, a_list, t_list, step, m_list, n_list):
   for i_point in range(1, nr_point):
     
     idx_1 = idx_2
-    idx_2 = int((t_list[i_point]-t_list[0])/step) + 1
+    idx_2 = idx_1+int((t_list[i_point]-t_list[i_point-1])/step)
     
     [p, v, a, j] = GetPath(x_list[:, i_point-1:i_point+1], 
                            v_list[:, i_point-1:i_point+1], 
@@ -274,7 +274,7 @@ def PathPlanning(x_list, v_list, a_list, t_list, step, m_list, n_list):
                           #  (np.array(t_list[i_point-1:i_point+1])-t_list[0]).tolist(), 
                            m_list[:, i_point-1], 
                            n_list[:, i_point-1], step)
-
+    print(i_point)
     position[:, idx_1:idx_2] = p[:, 1:]
     velocity[:, idx_1:idx_2] = v[:, 1:]
     acceleration[:, idx_1:idx_2] = a[:, 1:]

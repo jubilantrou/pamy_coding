@@ -56,3 +56,4 @@ def plot(t, ref, result, choice):
 if __name__ == '__main__':
     (t, step, position) = Pamy.PIDTesting(choice = choice, amp = amp, t_start = t_start, t_duration = t_duration)
     plot(t, step, position, choice)
+    # TODO: do the following procedure via scripts

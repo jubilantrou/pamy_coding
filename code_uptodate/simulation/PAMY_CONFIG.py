@@ -19,7 +19,7 @@ The initial posture of pamy.
 All the values are absolute values in angular space in rad.
 '''
 # GLOBAL_INITIAL = np.array([0.000000, 0.514884, 0.513349, 0.0000])
-GLOBAL_INITIAL = np.array([0, 1.0, 1.0, 0])
+GLOBAL_INITIAL = np.array([0, 0.8, 0.8, 0])
 # %%
 def FulfillZeros( a ):
     b = np.zeros(  [len(a), len(max(a, key = lambda x: len(x)))]  )

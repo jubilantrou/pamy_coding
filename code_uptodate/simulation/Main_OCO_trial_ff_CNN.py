@@ -87,8 +87,8 @@ filter_size = 11
 def get_random():
     theta = np.zeros(3)
     theta[0] = random.choice([random.randrange(-750, -250)/10, random.randrange(250, 750)/10])
-    theta[1] = random.choice([random.randrange(100, 350)/10, random.randrange(550, 800)/10])
-    theta[2] = random.choice([random.randrange(100, 350)/10, random.randrange(550, 800)/10])
+    theta[1] = random.randrange(100, 800)/10
+    theta[2] = random.randrange(100, 800)/10
     t        = random.randrange(90, 100)/100
     theta    = theta * math.pi/180
     return (t, theta)
@@ -370,12 +370,12 @@ for i_epoch in range(nr_epoch):
         plt.xlabel(r'Time $t$ in s')
         plt.ylabel(r'Position of Dof_0 in degree')
         line = []
-        line_temp, = ax_position0.plot(t_stamp, y[0, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,10)), label=r'Pos_Dof0_out')
+        line_temp, = ax_position0.plot(t_stamp, y[0, :] * 180 / math.pi, linewidth=2, label=r'Pos_Dof0_out')
         line.append( line_temp )
-        line_temp, = ax_position0.plot(t_stamp, theta_[0, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,10)), label=r'Pos_Dof0_des')
+        line_temp, = ax_position0.plot(t_stamp, theta_[0, :] * 180 / math.pi, linewidth=2, label=r'Pos_Dof0_des')
         line.append( line_temp )
         for j in range(len(theta_list)):
-            line_temp, = ax_position0.plot(t_stamp_list[j], theta_list[j][0, :] * 180 / math.pi, linewidth=2, label='Dof0_traj_candidate_'+str(j+1))
+            line_temp, = ax_position0.plot(t_stamp_list[j], theta_list[j][0, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,5)), label='Dof0_traj_candidate_'+str(j+1))
             line.append( line_temp )
         plt.legend(handles=line, loc=legend_position, shadow=True)
             
@@ -383,12 +383,12 @@ for i_epoch in range(nr_epoch):
         plt.xlabel(r'Time $t$ in s')
         plt.ylabel(r'Position of Dof_1 in degree')
         line = []
-        line_temp, = ax_position1.plot(t_stamp, y[1, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,10)), label=r'Pos_Dof1_out')
+        line_temp, = ax_position1.plot(t_stamp, y[1, :] * 180 / math.pi, linewidth=2, label=r'Pos_Dof1_out')
         line.append( line_temp )
-        line_temp, = ax_position1.plot(t_stamp, theta_[1, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,10)), label=r'Pos_Dof1_des')
+        line_temp, = ax_position1.plot(t_stamp, theta_[1, :] * 180 / math.pi, linewidth=2, label=r'Pos_Dof1_des')
         line.append( line_temp )
         for j in range(len(theta_list)):
-            line_temp, = ax_position1.plot(t_stamp_list[j], theta_list[j][1, :] * 180 / math.pi, linewidth=2, label='Dof1_traj_candidate_'+str(j+1))
+            line_temp, = ax_position1.plot(t_stamp_list[j], theta_list[j][1, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,5)), label='Dof1_traj_candidate_'+str(j+1))
             line.append( line_temp )
         plt.legend(handles=line, loc=legend_position, shadow=True)
         
@@ -396,12 +396,12 @@ for i_epoch in range(nr_epoch):
         plt.xlabel(r'Time $t$ in s')
         plt.ylabel(r'Position of Dof_2 in degree')
         line = []
-        line_temp, = ax_position2.plot(t_stamp, y[2, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,10)), label=r'Pos_Dof2_out')
+        line_temp, = ax_position2.plot(t_stamp, y[2, :] * 180 / math.pi, linewidth=2, label=r'Pos_Dof2_out')
         line.append( line_temp )
-        line_temp, = ax_position2.plot(t_stamp, theta_[2, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,10)), label=r'Pos_Dof2_des')
+        line_temp, = ax_position2.plot(t_stamp, theta_[2, :] * 180 / math.pi, linewidth=2, label=r'Pos_Dof2_des')
         line.append( line_temp )
         for j in range(len(theta_list)):
-            line_temp, = ax_position2.plot(t_stamp_list[j], theta_list[j][2, :] * 180 / math.pi, linewidth=2, label='Dof2_traj_candidate_'+str(j+1))
+            line_temp, = ax_position2.plot(t_stamp_list[j], theta_list[j][2, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,5)), label='Dof2_traj_candidate_'+str(j+1))
             line.append( line_temp )
         plt.legend(handles=line, loc=legend_position, shadow=True)
 

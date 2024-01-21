@@ -207,6 +207,8 @@ def CalParameter(x_0, x_f, t_0, t_f, m, n):
 def CalPath(x_0, x_f, t_0, t_f, step, m, n):
   nr_dof = x_0.shape[0]
   nr_point = int( (t_f-t_0)/step) + 1
+  print('nr_point: ')
+  print(nr_point)
   parameter = np.zeros((nr_dof, 6))
   p = np.zeros( (nr_dof, nr_point) )
   v = np.zeros( (nr_dof, nr_point) )
@@ -247,7 +249,10 @@ def GetPath(x_temp, v_temp, a_temp, t_temp, m, n, step):
 def PathPlanning(x_list, v_list, a_list, t_list, step, m_list, n_list):
   nr_dof = x_list.shape[0]
   nr_point = x_list.shape[1]
-  t_stamp = np.linspace(t_list[0], t_list[-1], int((t_list[-1]-t_list[0])/step)+1, endpoint=True)
+  num = 1
+  for i_point in range(1, nr_point):
+    num += int((t_list[i_point]-t_list[i_point-1])/step)
+  t_stamp = np.linspace(t_list[0], t_list[-1], num, endpoint=True)
 
   position = np.zeros((nr_dof, len(t_stamp)))
   velocity = np.zeros((nr_dof, len(t_stamp)))
@@ -262,10 +267,17 @@ def PathPlanning(x_list, v_list, a_list, t_list, step, m_list, n_list):
   idx_1 = 0
   idx_2 = 1
   
+  print('t_list: ')
+  print(t_list)
   for i_point in range(1, nr_point):
     
     idx_1 = idx_2
-    idx_2 = idx_1+int((t_list[i_point]-t_list[i_point-1])/step)
+    idx_2 = idx_1 + int((t_list[i_point]-t_list[i_point-1])/step)
+    print(i_point)
+    print('idx1')
+    print(idx_1)
+    print('idx2')
+    print(idx_2)
     
     [p, v, a, j] = GetPath(x_list[:, i_point-1:i_point+1], 
                            v_list[:, i_point-1:i_point+1], 
@@ -274,11 +286,17 @@ def PathPlanning(x_list, v_list, a_list, t_list, step, m_list, n_list):
                           #  (np.array(t_list[i_point-1:i_point+1])-t_list[0]).tolist(), 
                            m_list[:, i_point-1], 
                            n_list[:, i_point-1], step)
-    print(i_point)
+    print()
     position[:, idx_1:idx_2] = p[:, 1:]
     velocity[:, idx_1:idx_2] = v[:, 1:]
     acceleration[:, idx_1:idx_2] = a[:, 1:]
     jerk[:, idx_1:idx_2] = j[:, 1:]
+  
+  print('check: ')
+  print(position[:,-5:])
+  print(velocity[:,-5:])
+  print(acceleration[:,-5:])
+  print(jerk[:,-5:])
   
   return (position, velocity, acceleration, jerk, t_stamp)
 

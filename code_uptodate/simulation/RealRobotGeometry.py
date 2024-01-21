@@ -14,7 +14,7 @@ class RobotGeometry:
 
     def __init__(self, center_of_robot=[0, 0, 0], x_of_robot=[1, 0, 0],
                  y_of_robot=[0, 1, 0], z_of_robot=[0, 0, 1], 
-                 initial_posture=np.array([0, 0.833, 0.220, 0]), #initial_posture=np.array([0, -30, -30, 0])/180*math.pi, 
+                 initial_posture=np.array([0, 0.8, 0.8, 0]), #initial_posture=np.array([0, -30, -30, 0])/180*math.pi, 
                  l_1=0.40, l_2=0.38, step_size=0.01, constraint_angle=None):
         # for now the coordinates of robot must be [0, 0, 0]
         self.center_of_robot = center_of_robot
@@ -322,7 +322,6 @@ class RobotGeometry:
         time_update_record = []
 
         (p, v, a, j, theta, t_stamp) = self.PathPlanning(time_point=time_point, angle=angle, T_go=T_go, target=target)
-        print(theta[:,-1]/math.pi*180)
         p_list.append(p)
         v_list.append(v)
         a_list.append(a)
@@ -332,55 +331,59 @@ class RobotGeometry:
 
         idx_begin = 30
         t_begin = 0.3
-        while t_stamp[-1]-t_begin>=0.4:
+        while t_stamp[-1]-t_begin>=0.3:
             print('currrent time:')
             print(t_begin)
-            dice = random.random()
-            if dice>0.5:
-                print('no change')
-                idx_begin += 10
-                t_begin += 0.1
-                continue
-            else:
-                T_go += random.randrange(-15, 15)/100
-                (_, temp) = self.AngleToEnd(target[0:3], frame='Cartesian')
-                temp += [random.randrange(-4,4)/100,random.randrange(-4,4)/100,random.randrange(-8,8)/100]
-                target = self.EndToAngle(temp)
-                p_int_record.append(target)
-                print('update')
-                print('pos: {}'.format(theta[:,(idx_begin+10)]))
-                print('vel: {}'.format(v[:,(idx_begin+10)]))
-                print('acc: {}'.format(a[:,(idx_begin+10)]))
-                print('T_go: {}'.format(T_go))
-                print('target: {}'.format(target))
-                if T_go-(t_begin+0.1) >= 0.4:
-                    (p, v, a, j, theta, t_stamp) = self.PathPlanning(time_point=(t_begin*100+10), angle=theta[:,(idx_begin+10)], velocity_initial=v[:,(idx_begin+10)], acceleration_initial=a[:,(idx_begin+10)], T_go=T_go, target=target)
-                else:
-                    (p, v, a, j, theta, t_stamp) = self.PathPlanning(time_point=(t_begin*100+10), angle=theta[:,(idx_begin+10)], velocity_initial=v[:,(idx_begin+10)], acceleration_initial=a[:,(idx_begin+10)], T_go=T_go, target=target, part=0)
+
+            T_go += random.randrange(-15, 15)/100
+            if T_go>1.2:
+                T_go = 1.2
+            (_, temp) = self.AngleToEnd(target[0:3], frame='Cartesian')
+            temp += [random.randrange(-4,4)/100,random.randrange(-4,4)/100,random.randrange(-4,4)/100]
+            target = self.EndToAngle(temp)
+
+            p_int_record.append(target)
+            print('update')
+            print('turning pos: {}'.format(theta[:,(idx_begin+10)]))
+            print('turning vel: {}'.format(v[:,(idx_begin+10)]))
+            print('turning acc: {}'.format(a[:,(idx_begin+10)]))
+            print('new T_go: {}'.format(T_go))
+            print('new target: {}'.format(target))
+
+            if T_go-(t_begin+0.1) >= 0.3:
+                (p, v, a, j, theta, t_stamp) = self.PathPlanning(time_point=(t_begin*100+10), angle=theta[:,(idx_begin+10)], velocity_initial=v[:,(idx_begin+10)], acceleration_initial=a[:,(idx_begin+10)], T_go=T_go, target=target)
                 p_list.append(p)
                 v_list.append(v)
                 a_list.append(a)
                 j_list.append(j)
                 theta_list.append(theta)
                 t_stamp_list.append(t_stamp)
+
                 time_update_record.append(idx_begin+10)
                 idx_begin = 0
                 t_begin += 0.1
+            else:
+                (p, v, a, j, theta, t_stamp) = self.PathPlanning(time_point=(t_begin*100+10), angle=theta[:,(idx_begin+10)], velocity_initial=v[:,(idx_begin+10)], acceleration_initial=a[:,(idx_begin+10)], T_go=T_go, target=target, part=0)
+                p_list.append(p)
+                v_list.append(v)
+                a_list.append(a)
+                j_list.append(j)
+                theta_list.append(theta)
+                t_stamp_list.append(t_stamp)
 
+                time_update_record.append(idx_begin+10)
+                break
+
+        p_final = np.hstack([p_list[i][:,:time_update_record[i]] for i in range(len(time_update_record))] + [p_list[-1]])
+        v_final = np.hstack([v_list[i][:,:time_update_record[i]] for i in range(len(time_update_record))] + [v_list[-1]])
+        a_final = np.hstack([a_list[i][:,:time_update_record[i]] for i in range(len(time_update_record))] + [a_list[-1]])
+        j_final = np.hstack([j_list[i][:,:time_update_record[i]] for i in range(len(time_update_record))] + [j_list[-1]])
+        theta_final = np.hstack([theta_list[i][:,:time_update_record[i]] for i in range(len(time_update_record))] + [theta_list[-1]])
+        t_stamp_final = np.hstack([t_stamp_list[i][:time_update_record[i]] for i in range(len(time_update_record))] + [t_stamp_list[-1]])
         
-        p_final = np.hstack([p_list[i][:,:time_update_record[i]] for i in range(len(time_update_record))]+[p_list[-1]])
-        v_final = np.hstack([v_list[i][:,:time_update_record[i]] for i in range(len(time_update_record))]+[v_list[-1]])
-        a_final = np.hstack([a_list[i][:,:time_update_record[i]] for i in range(len(time_update_record))]+[a_list[-1]])
-        j_final = np.hstack([j_list[i][:,:time_update_record[i]] for i in range(len(time_update_record))]+[j_list[-1]])
-        theta_final = np.hstack([theta_list[i][:,:time_update_record[i]] for i in range(len(time_update_record))]+[theta_list[-1]])
-        t_stamp_final = np.hstack([t_stamp_list[i][:time_update_record[i]] for i in range(len(time_update_record))]+[t_stamp_list[-1]])
-        
-        if len(time_update_record)==0:
-            print('output no change')
-            return (p, v, a, j, theta, t_stamp, theta_list, t_stamp_list, p_int_record, time_update_record)
         return (p_final, v_final, a_final, j_final, theta_final, t_stamp_final, theta_list, t_stamp_list, p_int_record, time_update_record)
 
-    def PathPlanning( self, time_point, T_go=1.0, T_back=1.0, T_steady=0.1,
+    def PathPlanning( self, time_point, T_go=1.0, T_back=1.5, T_steady=0.2,
                       angle=None, velocity_initial=np.array([0, 0, 0]), 
                       acceleration_initial=np.array([0, 0, 0]),
                       target=None, frequency=100, plan_weight=(6, 10), part=1,):
@@ -395,7 +398,10 @@ class RobotGeometry:
         (_, p_initial) = self.AngleToEnd(angle[0:3], frame='Cylinder')  # theta1, r, h
         (_, p_target) = self.AngleToEnd(target[0:3], frame='Cylinder')  # theta1, r, h
 
-        v_target = np.array([4.0/p_target[1], 0, 0])
+        if p_target[0]<=0:
+            v_target = np.array([3.0/p_target[1], 0, 0])
+        else:
+            v_target = np.array([-3.0/p_target[1], 0, 0])
         v_final = np.array([0, 0, 0])
         a_target = np.array([0, 0, 0])
         a_final = np.array([0, 0, 0])
@@ -425,7 +431,7 @@ class RobotGeometry:
                       [1.0, 1.0, 1.0],
                       [1.0, 1.0, 1.0]]
             m_list = np.array(m_list)
-            n_list = [[plan_weight[0], plan_weight[1], 0.1],
+            n_list = [[plan_weight[0]+6, plan_weight[1]+2, 0.1],
                       [1.0, 1.0, 0.1],
                       [1.0, 1.0, 0.1]]
             n_list = np.array(n_list)

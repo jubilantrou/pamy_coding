@@ -207,8 +207,7 @@ def CalParameter(x_0, x_f, t_0, t_f, m, n):
 def CalPath(x_0, x_f, t_0, t_f, step, m, n):
   nr_dof = x_0.shape[0]
   nr_point = int( (t_f-t_0)/step) + 1
-  print('nr_point: ')
-  print(nr_point)
+
   parameter = np.zeros((nr_dof, 6))
   p = np.zeros( (nr_dof, nr_point) )
   v = np.zeros( (nr_dof, nr_point) )
@@ -267,17 +266,10 @@ def PathPlanning(x_list, v_list, a_list, t_list, step, m_list, n_list):
   idx_1 = 0
   idx_2 = 1
   
-  print('t_list: ')
-  print(t_list)
   for i_point in range(1, nr_point):
     
     idx_1 = idx_2
     idx_2 = idx_1 + int((t_list[i_point]-t_list[i_point-1])/step)
-    print(i_point)
-    print('idx1')
-    print(idx_1)
-    print('idx2')
-    print(idx_2)
     
     [p, v, a, j] = GetPath(x_list[:, i_point-1:i_point+1], 
                            v_list[:, i_point-1:i_point+1], 
@@ -291,12 +283,6 @@ def PathPlanning(x_list, v_list, a_list, t_list, step, m_list, n_list):
     velocity[:, idx_1:idx_2] = v[:, 1:]
     acceleration[:, idx_1:idx_2] = a[:, 1:]
     jerk[:, idx_1:idx_2] = j[:, 1:]
-  
-  print('check: ')
-  print(position[:,-5:])
-  print(velocity[:,-5:])
-  print(acceleration[:,-5:])
-  print(jerk[:,-5:])
   
   return (position, velocity, acceleration, jerk, t_stamp)
 

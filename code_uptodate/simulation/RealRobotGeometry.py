@@ -332,8 +332,8 @@ class RobotGeometry:
         idx_begin = 30
         t_begin = 0.3
         while t_stamp[-1]-t_begin>=0.3:
-            print('currrent time:')
-            print(t_begin)
+            # print('currrent time:')
+            # print(t_begin)
 
             T_go += random.randrange(-15, 15)/100
             if T_go>1.2:
@@ -341,14 +341,26 @@ class RobotGeometry:
             (_, temp) = self.AngleToEnd(target[0:3], frame='Cartesian')
             temp += [random.randrange(-4,4)/100,random.randrange(-4,4)/100,random.randrange(-4,4)/100]
             target = self.EndToAngle(temp)
+            if target[0] > 70/180*math.pi:
+                target[0] = 70/180*math.pi
+            elif target[0] < -70/180*math.pi:
+                target[0] = -70/180*math.pi
+            if target[1] > 75/180*math.pi:
+                target[1] = 75/180*math.pi
+            elif target[1] < 15/180*math.pi:
+                target[1] = 15/180*math.pi
+            if target[2] > 75/180*math.pi:
+                target[2] = 75/180*math.pi
+            elif target[2] < 15/180*math.pi:
+                target[2] = 15/180*math.pi
 
             p_int_record.append(target)
-            print('update')
-            print('turning pos: {}'.format(theta[:,(idx_begin+10)]))
-            print('turning vel: {}'.format(v[:,(idx_begin+10)]))
-            print('turning acc: {}'.format(a[:,(idx_begin+10)]))
-            print('new T_go: {}'.format(T_go))
-            print('new target: {}'.format(target))
+            # print('update')
+            # print('turning pos: {}'.format(theta[:,(idx_begin+10)]))
+            # print('turning vel: {}'.format(v[:,(idx_begin+10)]))
+            # print('turning acc: {}'.format(a[:,(idx_begin+10)]))
+            # print('new T_go: {}'.format(T_go))
+            # print('new target: {}'.format(target))
 
             if T_go-(t_begin+0.1) >= 0.3:
                 (p, v, a, j, theta, t_stamp) = self.PathPlanning(time_point=(t_begin*100+10), angle=theta[:,(idx_begin+10)], velocity_initial=v[:,(idx_begin+10)], acceleration_initial=a[:,(idx_begin+10)], T_go=T_go, target=target)
@@ -399,9 +411,9 @@ class RobotGeometry:
         (_, p_target) = self.AngleToEnd(target[0:3], frame='Cylinder')  # theta1, r, h
 
         if p_target[0]<=0:
-            v_target = np.array([3.0/p_target[1], 0, 0])
+            v_target = np.array([2.0/p_target[1], 0, 0])
         else:
-            v_target = np.array([-3.0/p_target[1], 0, 0])
+            v_target = np.array([-2.0/p_target[1], 0, 0])
         v_final = np.array([0, 0, 0])
         a_target = np.array([0, 0, 0])
         a_final = np.array([0, 0, 0])
@@ -430,11 +442,11 @@ class RobotGeometry:
             m_list = [[1.0, 1.0, 1.0],
                       [1.0, 1.0, 1.0],
                       [1.0, 1.0, 1.0]]
-            m_list = np.array(m_list)
-            n_list = [[plan_weight[0]+6, plan_weight[1]+2, 0.1],
+            m_list = np.array(m_list) #relative term
+            n_list = [[plan_weight[0], plan_weight[0], 0.1],
                       [1.0, 1.0, 0.1],
                       [1.0, 1.0, 0.1]]
-            n_list = np.array(n_list)
+            n_list = np.array(n_list) #tune n to adjust the penalty
             t = np.array([time_point/frequency, T_go, T_go+T_back, T_go+T_back+T_steady])
 
             # angle_list = np.array([ angle[0:3], 

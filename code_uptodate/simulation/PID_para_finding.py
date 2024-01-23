@@ -14,7 +14,7 @@ from RealRobotGeometry import RobotGeometry
 
 # %% set parameters
 obj = 'sim' # for the simulator or the real robot
-choice = 3 # which Dof to do test for
+choice = 2 # which Dof to do test for
 amp = 5/180*math.pi # the increased amplitude of the input step signal based on the initial position
 t_start = 0.5 # the starting time of the step signal
 t_duration = 5 # the whole time length for recording and plotting

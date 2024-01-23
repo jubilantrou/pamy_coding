@@ -1,0 +1,103 @@
+------------
+iter 0
+the 0. expected/actual angle: 0.00/-0.01 degree
+the error of 0. angle: -0.01 degree
+the 1. expected/actual angle: 45.84/45.77 degree
+the error of 1. angle: -0.06 degree
+the 2. expected/actual angle: 45.84/45.94 degree
+the error of 2. angle: 0.10 degree
+the 3. expected/actual angle: 0.00/-0.89 degree
+the error of 3. angle: -0.89 degree
+0. initial angle is: 0.05 degree
+1. initial angle is: 47.72 degree
+2. initial angle is: 45.82 degree
+3. initial angle is: -1.45 degree
+begin 0. optimization
+end 0. optimization
+loss:
+[1.9171810602849342, 0.6958642758189282, 1.018704541743539, 0.6979397506535682]
+------------
+iter 1
+the 0. expected/actual angle: 0.00/0.00 degree
+the error of 0. angle: 0.00 degree
+the 1. expected/actual angle: 45.84/45.74 degree
+the error of 1. angle: -0.10 degree
+the 2. expected/actual angle: 45.84/45.74 degree
+the error of 2. angle: -0.09 degree
+the 3. expected/actual angle: 0.00/-3.36 degree
+the error of 3. angle: -3.36 degree
+0. initial angle is: 0.02 degree
+1. initial angle is: 45.88 degree
+2. initial angle is: 45.84 degree
+3. initial angle is: -3.37 degree
+begin 1. optimization
+end 1. optimization
+loss:
+[5.497381425322184, 0.6647598393699933, 0.6503552946718772, 1.0057849822552132]
+------------
+iter 2
+the 0. expected/actual angle: 0.00/0.04 degree
+the error of 0. angle: 0.04 degree
+the 1. expected/actual angle: 45.84/45.75 degree
+the error of 1. angle: -0.09 degree
+the 2. expected/actual angle: 45.84/45.75 degree
+the error of 2. angle: -0.08 degree
+the 3. expected/actual angle: 0.00/-3.54 degree
+the error of 3. angle: -3.54 degree
+0. initial angle is: -0.05 degree
+1. initial angle is: 45.33 degree
+2. initial angle is: 45.64 degree
+3. initial angle is: -3.54 degree
+begin 2. optimization
+end 2. optimization
+loss:
+[5.181682913828165, 0.8256909774267066, 1.2990349844739781, 1.0147099903209156]
+------------
+iter 3
+the 0. expected/actual angle: 0.00/0.06 degree
+the error of 0. angle: 0.06 degree
+the 1. expected/actual angle: 45.84/45.78 degree
+the error of 1. angle: -0.06 degree
+the 2. expected/actual angle: 45.84/45.74 degree
+the error of 2. angle: -0.09 degree
+the 3. expected/actual angle: 0.00/-3.55 degree
+the error of 3. angle: -3.55 degree
+0. initial angle is: 0.10 degree
+1. initial angle is: 45.46 degree
+2. initial angle is: 45.64 degree
+3. initial angle is: -3.55 degree
+begin 3. optimization
+end 3. optimization
+loss:
+[2.85674163536041, 0.9610955705167719, 1.096456112410864, 0.9757622644789943]
+------------
+iter 4
+the 0. expected/actual angle: 0.00/-0.07 degree
+the error of 0. angle: -0.07 degree
+the 1. expected/actual angle: 45.84/45.77 degree
+the error of 1. angle: -0.07 degree
+the 2. expected/actual angle: 45.84/45.84 degree
+the error of 2. angle: 0.00 degree
+the 3. expected/actual angle: 0.00/-3.55 degree
+the error of 3. angle: -3.55 degree
+0. initial angle is: 0.01 degree
+1. initial angle is: 45.22 degree
+2. initial angle is: 45.61 degree
+3. initial angle is: -3.55 degree
+begin 4. optimization
+end 4. optimization
+loss:
+[1.7244794368472407, 0.7572522891917177, 0.6514662892813196, 0.9576922545079559]
+------------
+iter 5
+the 0. expected/actual angle: 0.00/0.01 degree
+the error of 0. angle: 0.01 degree
+the 1. expected/actual angle: 45.84/45.74 degree
+the error of 1. angle: -0.10 degree
+the 2. expected/actual angle: 45.84/45.74 degree
+the error of 2. angle: -0.09 degree
+the 3. expected/actual angle: 0.00/-3.55 degree
+the error of 3. angle: -3.55 degree
+0. initial angle is: 0.03 degree
+1. initial angle is: 45.91 degree
+2. initial angle is: 45.85 degree

@@ -217,8 +217,8 @@ ant_pressure_min = ant_min_list - anchor_ant_list
 pressure_max = [min([ago_pressure_max[i],-ant_pressure_min[i]]) for i in range(len(dof_list))]
 pressure_min = [max([ago_pressure_min[i],-ant_pressure_max[i]]) for i in range(len(dof_list))]
 pressure_limit = [min([ago_pressure_max[i],-ago_pressure_min[i],ant_pressure_max[i],-ant_pressure_min[i]]) for i in range(len(dof_list))]
-print('pressure limits:')
-print(pressure_limit)
+# print('pressure limits:')
+# print(pressure_limit)
 
 strategy_list = np.array([1, 1, 1, 1])
 
@@ -232,10 +232,16 @@ strategy_list = np.array([1, 1, 1, 1])
 #             [-3998,  -8008, -264.5],
 #             [0, 0, 0]] # from simulink
 
-pid_list = [[-8368.8*0.8,  -66950.4*0.8*0.75, -261.525*1.2],
-            [-12000*0.85,  -51200*0.8*0.75, -703.125*1.2],
+pid_list = [[-8368.8*0.8,  -66950.4*0.8*0.8, -261.525],
+            [-12000*0.6,  -51200*0.5, -703.125*0.75],
             [-16500,  -195200*0.2, -429*1.75],
-            [-13800*0.95, -50468*0.4, -943*1.1]]
+            [-13800*0.85, -50468*0.5, -943]] # tuned PID
+
+# pid_list = [[-10000,  0, -260],
+#             [-10500,  0, -525],
+#             [-18000,  0, -875],
+#             [-12000, 0, -1000]] # tuned PD
+
 pid_list = FulfillZeros( pid_list )
 
 # delta_d_list   = np.array([1e-9, 1e-11, 1e-8, 1e-9]) 

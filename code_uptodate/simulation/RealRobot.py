@@ -88,10 +88,14 @@ class Robot:
         #                                   [ 80000, 0, 300],
         #                                   [ -5000, -8000, -100],
         #                                   [3.422187330173758e+04, 1.673663594798479e+05 / 10, 73.238165769446297]])
-        self.pid_for_tracking = np.array([[-13000, 0, -300],
-                                          [-30000, 0, -300],
-                                          [-5000, -8000, -100],
-                                          [3.422187330173758e+04, 1.673663594798479e+05 / 10, 73.238165769446297]])
+        # self.pid_for_tracking = np.array([[-13000, 0, -300],
+        #                                   [-30000, 0, -300],
+        #                                   [-5000, -8000, -100],
+        #                                   [3.422187330173758e+04, 1.673663594798479e+05 / 10, 73.238165769446297]])
+        self.pid_for_tracking = np.array([[-10000,  0, -260],
+                                          [-10500,  0, -525],
+                                          [-18000,  0, -875],
+                                          [-12000, 0, -1000]]) # tuned PD
         # NN
         self.A_list = A_list 
         self.A_bias = A_bias
@@ -298,10 +302,9 @@ class Robot:
             res_d = ( angle_delta - angle_delta_pre ) / t
             res_i += angle_delta * t
 
-            # feedback = pid[:, 0].reshape(len(self.dof_list), -1) * angle_delta\
-            #          + pid[:, 1].reshape(len(self.dof_list), -1) * res_i\
-            #          + pid[:, 2].reshape(len(self.dof_list), -1) * res_d
-            feedback = 0
+            feedback = pid[:, 0].reshape(len(self.dof_list), -1) * angle_delta\
+                     + pid[:, 1].reshape(len(self.dof_list), -1) * res_i\
+                     + pid[:, 2].reshape(len(self.dof_list), -1) * res_d
             
             angle_delta_pre = np.copy( angle_delta )
 
@@ -385,12 +388,12 @@ class Robot:
             pressure_ago = pressure_ago.reshape(-1, len(self.dof_list)).T
             pressure_ant = pressure_ant.reshape(-1, len(self.dof_list)).T
 
-            observation_prev = self.frontend.read(iteration_begin-iterations_per_command)
-            obs_position_prev = np.array( observation_prev.get_positions() )
-            position = np.hstack([obs_position_prev.reshape(4,1), position[:,:-1]])
+            # observation_prev = self.frontend.read(iteration_begin-iterations_per_command)
+            # obs_position_prev = np.array( observation_prev.get_positions() )
+            # position = np.hstack([obs_position_prev.reshape(4,1), position[:,:-1]])
             
-            print('final positions:')
-            print(position[:,-1]/math.pi*180)
+            # print('final positions:')
+            # print(position[:,-1]/math.pi*180)
 
             return (position, fb, pressure_ago, pressure_ant)
          

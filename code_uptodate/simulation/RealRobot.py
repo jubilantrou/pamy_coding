@@ -92,10 +92,14 @@ class Robot:
         #                                   [-30000, 0, -300],
         #                                   [-5000, -8000, -100],
         #                                   [3.422187330173758e+04, 1.673663594798479e+05 / 10, 73.238165769446297]])
-        self.pid_for_tracking = np.array([[-10000,  0, -260],
+        self.pid_for_tracking = 0.7*np.array([[-10000,  0, -260],
                                           [-10500,  0, -525],
                                           [-18000,  0, -875],
                                           [-12000, 0, -1000]]) # tuned PD
+        # self.pid_for_tracking = np.array([[0,  0, 0],
+        #                                   [0,  0, 0],
+        #                                   [0,  0, 0],
+        #                                   [-12000, 0, -1000]]) # tuned PD
         # NN
         self.A_list = A_list 
         self.A_bias = A_bias

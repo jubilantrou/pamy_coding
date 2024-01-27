@@ -75,7 +75,7 @@ if __name__ == '__main__':
             Ki = 1.2*Ku/Tu
             Kd = 0.075*Ku*Tu
         return(Kp,Ki,Kd)
-    print(para_compute(Pamy.pid_list[choice,0],Tu,'1'))
+    print('P, I, D: {}'.format(para_compute(Pamy.pid_list[choice,0],Tu,'1')))
 
     plot(t, step, position, choice, peaks)
     # TODO: do the following procedure via scripts

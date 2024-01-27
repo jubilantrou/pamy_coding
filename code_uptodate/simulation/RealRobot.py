@@ -99,7 +99,7 @@ class Robot:
         # self.pid_for_tracking = np.array([[0,  0, 0],
         #                                   [0,  0, 0],
         #                                   [0,  0, 0],
-        #                                   [-12000, 0, -1000]]) # tuned PD
+        #                                   [0,  0, 0]]) # tuned PD
         # NN
         self.A_list = A_list 
         self.A_bias = A_bias
@@ -289,7 +289,7 @@ class Robot:
         # read the current iteration
         iteration_reference = self.frontend.latest().get_iteration()  
         # set the beginning iteration number
-        iteration_begin = iteration_reference + 1500
+        iteration_begin = iteration_reference + 100
 
         iteration = iteration_begin
 
@@ -345,6 +345,8 @@ class Robot:
             # do not control the last dof
             pressure_ago[3] = self.anchor_ago_list[3]
             pressure_ant[3] = self.anchor_ant_list[3]
+            pressure_ago[0] = self.anchor_ago_list[0]
+            pressure_ant[0] = self.anchor_ant_list[0]
 
             self.frontend.add_command(pressure_ago, pressure_ant,
                                       o80.Iteration(iteration),
@@ -413,7 +415,7 @@ class Robot:
         # for dof in self.dof_list:
         #     print("the {}. ago/ant pressure is: {:.2f}/{:.2f}".format(dof, pressures[dof, 0], pressures[dof, 1]) )
 
-    def AngleInitialization(self, angle, tolerance_list=[0.1,0.1,0.1,1.0], 
+    def AngleInitialization(self, angle, tolerance_list=[0.5,0.5,0.5,1.0], 
                             frequency_frontend=100, frequency_backend=500):        
         pid = np.copy( self.pid_list )
         tolerance_list = np.array(tolerance_list)
@@ -426,7 +428,7 @@ class Robot:
         t = 1 / frequency_frontend
         iterations_per_command = int( period_frontend / period_backend )
 
-        iteration = self.frontend.latest().get_iteration() + 200  # set the iteration when beginning
+        iteration = self.frontend.latest().get_iteration() + 100  # set the iteration when beginning
         
         self.frontend.add_command(self.anchor_ago_list, self.anchor_ant_list,
                                   o80.Iteration(iteration-iterations_per_command),

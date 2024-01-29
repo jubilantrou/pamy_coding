@@ -310,7 +310,7 @@ class RobotGeometry:
     def updatedPathPlanning(self, time_point, T_go=1.0, T_back=1.0, T_steady=0.1,
                       angle=None, velocity_initial=np.array([0, 0, 0]), 
                       acceleration_initial=np.array([0, 0, 0]),
-                      target=None, frequency=100, plan_weight=(6, 10)):
+                      target=None, frequency=100, plan_weight=(6, 10), method=None):
         
         p_list = []
         v_list = []
@@ -320,8 +320,9 @@ class RobotGeometry:
         t_stamp_list = []
         p_int_record = [target]
         time_update_record = []
+        T_go_list = [T_go]
 
-        (p, v, a, j, theta, t_stamp) = self.PathPlanning(time_point=time_point, angle=angle, T_go=T_go, target=target)
+        (p, v, a, j, theta, t_stamp) = self.PathPlanning(time_point=time_point, angle=angle, T_go=T_go, target=target, part=0)
         p_list.append(p)
         v_list.append(v)
         a_list.append(a)
@@ -355,15 +356,22 @@ class RobotGeometry:
                 target[2] = 15/180*math.pi
 
             p_int_record.append(target)
-            # print('update')
-            # print('turning pos: {}'.format(theta[:,(idx_begin+10)]))
-            # print('turning vel: {}'.format(v[:,(idx_begin+10)]))
-            # print('turning acc: {}'.format(a[:,(idx_begin+10)]))
-            # print('new T_go: {}'.format(T_go))
-            # print('new target: {}'.format(target))
+            T_go_list.append(T_go)
 
             if T_go-(t_begin+0.1) >= 0.3:
-                (p, v, a, j, theta, t_stamp) = self.PathPlanning(time_point=(t_begin*100+10), angle=theta[:,(idx_begin+10)], velocity_initial=v[:,(idx_begin+10)], acceleration_initial=a[:,(idx_begin+10)], T_go=T_go, target=target)
+                if method==1:
+                    (p, v, a, j, theta, t_stamp) = self.PathPlanning(time_point=(t_begin*100+10), angle=theta[:,(idx_begin+10)], 
+                                                                     velocity_initial=v[:,(idx_begin+10)], acceleration_initial=a[:,(idx_begin+10)], T_go=T_go, target=target, part=0)
+                    time_update_record.append(idx_begin+10)
+                    idx_begin = 0
+                    t_begin += 0.1
+                elif method==2:
+                    (p, v, a, j, theta, t_stamp) = self.PathPlanning(time_point=(t_begin*100), angle=theta[:,(idx_begin)], 
+                                                                     velocity_initial=v[:,(idx_begin)], acceleration_initial=a[:,(idx_begin)], T_go=T_go, target=target, part=0)
+                    time_update_record.append(idx_begin)
+                    idx_begin = 10
+                    t_begin += 0.1
+                    
                 p_list.append(p)
                 v_list.append(v)
                 a_list.append(a)
@@ -371,11 +379,16 @@ class RobotGeometry:
                 theta_list.append(theta)
                 t_stamp_list.append(t_stamp)
 
-                time_update_record.append(idx_begin+10)
-                idx_begin = 0
-                t_begin += 0.1
             else:
-                (p, v, a, j, theta, t_stamp) = self.PathPlanning(time_point=(t_begin*100+10), angle=theta[:,(idx_begin+10)], velocity_initial=v[:,(idx_begin+10)], acceleration_initial=a[:,(idx_begin+10)], T_go=T_go, target=target, part=0)
+                if method==1:
+                    (p, v, a, j, theta, t_stamp) = self.PathPlanning(time_point=(t_begin*100+10), angle=theta[:,(idx_begin+10)], 
+                                                                     velocity_initial=v[:,(idx_begin+10)], acceleration_initial=a[:,(idx_begin+10)], T_go=T_go, target=target, part=0)
+                    time_update_record.append(idx_begin+10)
+                elif method==2:
+                    (p, v, a, j, theta, t_stamp) = self.PathPlanning(time_point=(t_begin*100), angle=theta[:,(idx_begin)], 
+                                                                     velocity_initial=v[:,(idx_begin)], acceleration_initial=a[:,(idx_begin)], T_go=T_go, target=target, part=0)
+                    time_update_record.append(idx_begin)
+                
                 p_list.append(p)
                 v_list.append(v)
                 a_list.append(a)
@@ -383,7 +396,6 @@ class RobotGeometry:
                 theta_list.append(theta)
                 t_stamp_list.append(t_stamp)
 
-                time_update_record.append(idx_begin+10)
                 break
 
         p_final = np.hstack([p_list[i][:,:time_update_record[i]] for i in range(len(time_update_record))] + [p_list[-1]])
@@ -392,10 +404,16 @@ class RobotGeometry:
         j_final = np.hstack([j_list[i][:,:time_update_record[i]] for i in range(len(time_update_record))] + [j_list[-1]])
         theta_final = np.hstack([theta_list[i][:,:time_update_record[i]] for i in range(len(time_update_record))] + [theta_list[-1]])
         t_stamp_final = np.hstack([t_stamp_list[i][:time_update_record[i]] for i in range(len(time_update_record))] + [t_stamp_list[-1]])
-        
-        return (p_final, v_final, a_final, j_final, theta_final, t_stamp_final, theta_list, t_stamp_list, p_int_record, time_update_record)
 
-    def PathPlanning( self, time_point, T_go=1.0, T_back=1.5, T_steady=0.2,
+        update_point_index_list = []
+        num = 0
+        for i in range(len(time_update_record)):
+            num += time_update_record[i]
+            update_point_index_list.append(num)
+        
+        return (p_final, v_final, a_final, j_final, theta_final, t_stamp_final, theta_list, t_stamp_list, p_int_record, T_go_list, time_update_record, update_point_index_list)
+
+    def PathPlanning( self, time_point, T_go=1.0, T_back=1.35, T_steady=0.15,
                       angle=None, velocity_initial=np.array([0, 0, 0]), 
                       acceleration_initial=np.array([0, 0, 0]),
                       target=None, frequency=100, plan_weight=(6, 10), part=1,):

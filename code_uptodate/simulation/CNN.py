@@ -10,47 +10,47 @@ class CNN(nn.Module):
      
         super(CNN, self).__init__()
 
-        l = height #21
-        self.conv1 = nn.Sequential(  nn.Conv2d( in_channels=channel_in,
-                                                out_channels=3*channel_in,
-                                                kernel_size=(filter_size, 3),
-                                                stride=(1, 1),
-                                                padding=(0, 1),
-                                                bias=True),
-                                     nn.ReLU()
-                                  )
-        l = (l - filter_size + 1) #19
-        self.conv2 = nn.Sequential(  nn.Conv2d( in_channels=3*channel_in,
-                                                out_channels=3*channel_in,
-                                                kernel_size=(filter_size, 3),
-                                                stride=(1, 1),
-                                                padding=(0, 1),
-                                                bias=True),
-                                     nn.ReLU()
+        # l = height #21
+        # self.conv1 = nn.Sequential(  nn.Conv2d( in_channels=channel_in,
+        #                                         out_channels=3*channel_in,
+        #                                         kernel_size=(filter_size, 3),
+        #                                         stride=(1, 1),
+        #                                         padding=(0, 1),
+        #                                         bias=True),
+        #                              nn.ReLU()
+        #                           )
+        # l = (l - filter_size + 1) #19
+        # self.conv2 = nn.Sequential(  nn.Conv2d( in_channels=3*channel_in,
+        #                                         out_channels=channel_in,
+        #                                         kernel_size=(filter_size, 3),
+        #                                         stride=(1, 1),
+        #                                         padding=(0, 0),
+        #                                         bias=True),
+        #                              nn.ReLU()
 
-                                   )
-        l = (l - filter_size + 1) #17
-        self.conv3 = nn.Sequential(  nn.Conv2d( in_channels=3*channel_in,
-                                                out_channels=3* channel_in,
-                                                kernel_size=(filter_size, 2),
-                                                stride=(1, 1),
-                                                padding=(0, 0),
-                                                bias=True),
-                                     nn.ReLU()
+        #                            )
+        # l = (l - filter_size + 1) #17
+        # self.conv3 = nn.Sequential(  nn.Conv2d( in_channels=3*channel_in,
+        #                                         out_channels=3* channel_in,
+        #                                         kernel_size=(filter_size, 2),
+        #                                         stride=(1, 1),
+        #                                         padding=(0, 0),
+        #                                         bias=True),
+        #                              nn.ReLU()
 
-                                   )
-        l = (l - filter_size + 1) #15
+        #                            )
+        # l = (l - filter_size + 1) #15
 
-        self.conv4 = nn.Sequential(  nn.Conv2d( in_channels=3*channel_in,
-                                                out_channels=1*channel_in,
-                                                kernel_size=(filter_size, 2),
-                                                stride=(1, 1),
-                                                padding=(0, 0),
-                                                bias=True),
-                                     nn.ReLU()
+        # self.conv4 = nn.Sequential(  nn.Conv2d( in_channels=3*channel_in,
+        #                                         out_channels=1*channel_in,
+        #                                         kernel_size=(filter_size, 2),
+        #                                         stride=(1, 1),
+        #                                         padding=(0, 0),
+        #                                         bias=True),
+        #                              nn.ReLU()
 
-                                   )
-        l = (l - filter_size + 1) #13
+        #                            )
+        # l = (l - filter_size + 1) #13
 
         # self.conv5 = nn.Sequential(  nn.Conv2d( in_channels=1*channel_in,
         #                                         out_channels=1*channel_in,
@@ -85,17 +85,17 @@ class CNN(nn.Module):
         #                            )
         # l = (l - filter_size + 1)
 
-        self.fc = nn.Sequential( nn.Linear( l*1*channel_in, 8, bias=True) ,
-                                 nn.Dropout(dropout),     
-                                 nn.ReLU(),     
-                                 nn.Linear( 8, 8, bias=True) ,
-                                 nn.Dropout(dropout),     
-                                 nn.ReLU(),        
-                                 nn.Linear( 8, 4, bias=True) ,
-                                 nn.Dropout(dropout),
-                                 nn.ReLU(),
-                                 nn.Linear( 4, length_label * channel_out, bias=True ), 
-                                 nn.Tanh()
+        self.fc = nn.Sequential( nn.Linear( height*width*channel_in, 64, bias=True),
+                                  # nn.Dropout(dropout),     
+                                  nn.ReLU(),     
+                                  nn.Linear( 64, 1, bias=True),
+                                  # nn.Dropout(dropout),     
+                                  # nn.ReLU(),        
+                                  # nn.Linear( 8, 4, bias=True) ,
+                                  # nn.Dropout(dropout),
+                                  # nn.ReLU(),
+                                  # nn.Linear( 32, length_label * channel_out, bias=True ), 
+                                  # nn.Tanh()
                                 #  nn.Hardtanh(-0.9,0.9)
                                 )
         
@@ -110,17 +110,18 @@ class CNN(nn.Module):
         
         preds = None
    
-        out = self.conv1(inputs)
-        out = self.conv2(out)
-        out = self.conv3(out)
-        out = self.conv4(out)
+        # out1 = self.conv1(inputs)
+        # out2 = self.conv2(out1)
+        # out = self.conv3(out)
+        # out = self.conv4(out)
         # out = self.conv5(out)
         # out = self.conv6(out)
         # out = self.conv7(out)
         
-        batch_size, channels, height, width = out.shape 
-        out = out.view(-1, channels * height * width)
-        preds = self.fc(out)
+        # batch_size, channels, height, width = inputs.shape 
+        # out2 = out2.view(-1, channels * height * width)
+        # inputs = inputs.view(-1, channels * height * width)
+        preds = self.fc(inputs)
       
         return preds.float()
 

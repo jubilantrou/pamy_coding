@@ -332,7 +332,7 @@ class RobotGeometry:
 
         idx_begin = 30
         t_begin = 0.3
-        while t_stamp[-1]-t_begin>=0.3:
+        while t_stamp[-1]-t_begin>=0.4:
             # print('currrent time:')
             # print(t_begin)
 
@@ -358,7 +358,7 @@ class RobotGeometry:
             p_int_record.append(target)
             T_go_list.append(T_go)
 
-            if T_go-(t_begin+0.1) >= 0.3:
+            if T_go-(t_begin+0.1) >= 0.4:
                 if method==1:
                     (p, v, a, j, theta, t_stamp) = self.PathPlanning(time_point=(t_begin*100+10), angle=theta[:,(idx_begin+10)], 
                                                                      velocity_initial=v[:,(idx_begin+10)], acceleration_initial=a[:,(idx_begin+10)], T_go=T_go, target=target, part=0)

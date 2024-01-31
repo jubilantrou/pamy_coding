@@ -99,7 +99,7 @@ class Robot:
         # self.pid_for_tracking = np.array([[0,  0, 0],
         #                                   [0,  0, 0],
         #                                   [0,  0, 0],
-        #                                   [0,  0, 0]]) # tuned PD
+        #                                   [0,  0, 0]]) # w/o PD
         # NN
         self.A_list = A_list 
         self.A_bias = A_bias
@@ -415,7 +415,7 @@ class Robot:
         # for dof in self.dof_list:
         #     print("the {}. ago/ant pressure is: {:.2f}/{:.2f}".format(dof, pressures[dof, 0], pressures[dof, 1]) )
 
-    def AngleInitialization(self, angle, tolerance_list=[0.5,0.5,0.5,1.0], 
+    def AngleInitialization(self, angle, tolerance_list=[0.1,0.1,0.1,1.0], 
                             frequency_frontend=100, frequency_backend=500):        
         pid = np.copy( self.pid_list )
         tolerance_list = np.array(tolerance_list)

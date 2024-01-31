@@ -206,7 +206,7 @@ def CalParameter(x_0, x_f, t_0, t_f, m, n):
 
 def CalPath(x_0, x_f, t_0, t_f, step, m, n):
   nr_dof = x_0.shape[0]
-  nr_point = int( (t_f-t_0)/step) + 1
+  nr_point = int(np.round((t_f-t_0)/step)) + 1
 
   parameter = np.zeros((nr_dof, 6))
   p = np.zeros( (nr_dof, nr_point) )
@@ -227,7 +227,7 @@ def CalPath(x_0, x_f, t_0, t_f, step, m, n):
   return (p, v, a, j)
 
 def GetSteady(x, t_0, t_f, step):
-  nr_point = int((t_f-t_0)/step) + 1
+  nr_point = int(np.round((t_f-t_0)/step)) + 1
   p = np.ones(nr_point) * x[0]
   v = np.ones(nr_point) * x[1]
   a = np.ones(nr_point) * x[2]
@@ -248,9 +248,10 @@ def GetPath(x_temp, v_temp, a_temp, t_temp, m, n, step):
 def PathPlanning(x_list, v_list, a_list, t_list, step, m_list, n_list):
   nr_dof = x_list.shape[0]
   nr_point = x_list.shape[1]
-  num = 1
+  num = 1 # starting from 1 already
   for i_point in range(1, nr_point):
-    num += int((t_list[i_point]-t_list[i_point-1])/step)
+    temp = int(np.round((t_list[i_point]-t_list[i_point-1])/step))
+    num += temp
   t_stamp = np.linspace(t_list[0], t_list[-1], num, endpoint=True)
 
   position = np.zeros((nr_dof, len(t_stamp)))
@@ -269,7 +270,7 @@ def PathPlanning(x_list, v_list, a_list, t_list, step, m_list, n_list):
   for i_point in range(1, nr_point):
     
     idx_1 = idx_2
-    idx_2 = idx_1 + int((t_list[i_point]-t_list[i_point-1])/step)
+    idx_2 = idx_1 + int(np.round((t_list[i_point]-t_list[i_point-1])/step))
     
     [p, v, a, j] = GetPath(x_list[:, i_point-1:i_point+1], 
                            v_list[:, i_point-1:i_point+1], 
@@ -278,7 +279,6 @@ def PathPlanning(x_list, v_list, a_list, t_list, step, m_list, n_list):
                           #  (np.array(t_list[i_point-1:i_point+1])-t_list[0]).tolist(), 
                            m_list[:, i_point-1], 
                            n_list[:, i_point-1], step)
-    print()
     position[:, idx_1:idx_2] = p[:, 1:]
     velocity[:, idx_1:idx_2] = v[:, 1:]
     acceleration[:, idx_1:idx_2] = a[:, 1:]

@@ -19,6 +19,7 @@ choice = 1 # which Dof to do test for
 amp = 1/180*math.pi # the increased amplitude of the input step signal based on the initial position
 t_start = 0.5 # the starting time of the step signal
 t_duration = 5 # the whole time length for recording and plotting
+mode = 'no overshoot' # the name of control type for Ziegler-Nichols method
 
 # %% initialize the chosen obj
 if obj=='sim':
@@ -38,8 +39,7 @@ def mkdir(path):
     if not folder:
         os.makedirs(path)
 
-def plot(t, ref, result, choice, peaks):
-
+def plot(t, ref, result, choice, peaks=None):
     fig = plt.figure(figsize=(18, 18))
     ax_position0 = fig.add_subplot(111)
     plt.xlabel(r'Time in s')
@@ -49,33 +49,39 @@ def plot(t, ref, result, choice, peaks):
     line.append( line_temp )
     line_temp, = ax_position0.plot(t, result * 180 / math.pi, linewidth=2, label='output signal')
     line.append( line_temp )
-    line_temp, = ax_position0.plot(t[peaks], result[peaks] * 180 / math.pi, 'x', label='output signal')
-    line.append( line_temp )
+    if peaks is not None:
+        line_temp, = ax_position0.plot(t[peaks], result[peaks] * 180 / math.pi, 'x', label='output peaks detected')
+        line.append( line_temp )
     plt.legend(handles=line, shadow=True)
     plt.grid()
     plt.suptitle('Joint Space for Dof '+str(choice))              
     plt.show()
 
+def para_compute(Ku, Tu, mode):
+    if (mode=='no overshoot'):
+        Kp = 0.2*Ku
+        Ki = 0.4*Ku/Tu
+        Kd = 0.066*Ku*Tu
+    elif (mode=='classic PID'):
+        Kp = 0.6*Ku
+        Ki = 1.2*Ku/Tu
+        Kd = 0.075*Ku*Tu
+    return(Kp,Ki,Kd)
+
 # %% run the main
 if __name__ == '__main__':
     (t, step, position) = Pamy.PIDTesting(choice = choice, amp = amp, t_start = t_start, t_duration = t_duration)
 
-    peaks, _ = scipy.signal.find_peaks(position)
-    num_peaks_taken = 3
-    Tu = (t[peaks[-1]]-t[peaks[-(1+num_peaks_taken)]])/num_peaks_taken
-    print('Tu: {}'.format(Tu))
+    ready_to_process = 0
+    peaks = None
+    if ready_to_process:
+        peaks, _ = scipy.signal.find_peaks(position)
+        num_peaks_taken = 3
+        Tu = (t[peaks[-1]]-t[peaks[-(1+num_peaks_taken)]])/num_peaks_taken
+        print('Tu: {}'.format(Tu))
 
-    def para_compute(Ku, Tu, mode):
-        if (mode=='no overshoot') or (mode=='1'):
-            Kp = 0.2*Ku
-            Ki = 0.4*Ku/Tu
-            Kd = 0.066*Ku*Tu
-        elif (mode=='classic PID') or (mode=='2'):
-            Kp = 0.6*Ku
-            Ki = 1.2*Ku/Tu
-            Kd = 0.075*Ku*Tu
-        return(Kp,Ki,Kd)
-    print('P, I, D: {}'.format(para_compute(Pamy.pid_list[choice,0],Tu,'1')))
+        print('computation method: {}'.format(mode))
+        print('P, I, D: {}'.format(para_compute(Pamy.pid_list[choice,0],Tu,mode)))
 
     plot(t, step, position, choice, peaks)
     # TODO: do the following procedure via scripts

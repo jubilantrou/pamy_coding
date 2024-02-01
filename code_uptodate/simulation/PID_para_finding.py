@@ -14,12 +14,14 @@ from RealRobotGeometry import RobotGeometry
 import scipy
 
 # %% set parameters
-obj = 'sim' # for the simulator or the real robot
-choice = 1 # which Dof to do test for
-amp = 1/180*math.pi # the increased amplitude of the input step signal based on the initial position
+obj = 'real' # for the simulator or the real robot
+choice = 3 # which Dof to do test for
+amp = 30/180*math.pi # the increased amplitude of the input step signal based on the initial position
 t_start = 0.5 # the starting time of the step signal
-t_duration = 5 # the whole time length for recording and plotting
-mode = 'no overshoot' # the name of control type for Ziegler-Nichols method
+t_duration = 5.0 # the whole time length for recording and plotting
+mode1 = 'no overshoot' # the name of control type for Ziegler-Nichols method
+mode2 = 'classic PID'
+mode3 = 'Pessen Integral Rule'
 
 # %% initialize the chosen obj
 if obj=='sim':
@@ -39,9 +41,9 @@ def mkdir(path):
     if not folder:
         os.makedirs(path)
 
-def plot(t, ref, result, choice, peaks=None):
+def plot(t, ref, result, choice, p_ago, p_ant, peaks=None):
     fig = plt.figure(figsize=(18, 18))
-    ax_position0 = fig.add_subplot(111)
+    ax_position0 = fig.add_subplot(121)
     plt.xlabel(r'Time in s')
     plt.ylabel(r'Position of Dof_' + str(choice) + 'in degree')
     line = []
@@ -52,6 +54,16 @@ def plot(t, ref, result, choice, peaks=None):
     if peaks is not None:
         line_temp, = ax_position0.plot(t[peaks], result[peaks] * 180 / math.pi, 'x', label='output peaks detected')
         line.append( line_temp )
+    
+    ax_position1 = fig.add_subplot(122)
+    plt.xlabel(r'Time in s')
+    plt.ylabel(r'Pressure of Dof_' + str(choice))
+    line = []
+    line_temp, = ax_position1.plot(t, p_ago, linewidth=2, label='ago pressure')
+    line.append( line_temp )
+    line_temp, = ax_position1.plot(t, p_ant, linewidth=2, label='ant pressure')
+    line.append( line_temp )
+
     plt.legend(handles=line, shadow=True)
     plt.grid()
     plt.suptitle('Joint Space for Dof '+str(choice))              
@@ -66,22 +78,39 @@ def para_compute(Ku, Tu, mode):
         Kp = 0.6*Ku
         Ki = 1.2*Ku/Tu
         Kd = 0.075*Ku*Tu
+    elif (mode=='Pessen Integral Rule'):
+        Kp = 0.7*Ku
+        Ki = 1.75*Ku/Tu
+        Kd = 0.105*Ku*Tu
     return(Kp,Ki,Kd)
 
 # %% run the main
 if __name__ == '__main__':
-    (t, step, position) = Pamy.PIDTesting(choice = choice, amp = amp, t_start = t_start, t_duration = t_duration)
+    init = 0
 
-    ready_to_process = 0
-    peaks = None
-    if ready_to_process:
-        peaks, _ = scipy.signal.find_peaks(position)
-        num_peaks_taken = 3
-        Tu = (t[peaks[-1]]-t[peaks[-(1+num_peaks_taken)]])/num_peaks_taken
-        print('Tu: {}'.format(Tu))
+    if init:
+        Pamy.PressureInitialization(duration=4)
+    
+    else:
+        (t, step, position, pressure_ago, pressure_ant) = Pamy.PIDTesting(choice = choice, amp = amp, t_start = t_start, t_duration = t_duration)
+        Pamy.PressureInitialization(duration=4)
 
-        print('computation method: {}'.format(mode))
-        print('P, I, D: {}'.format(para_compute(Pamy.pid_list[choice,0],Tu,mode)))
+        ready_to_process = 0
+        peaks = None
+        if ready_to_process:
+            peaks, _ = scipy.signal.find_peaks(position)
+            num_peaks_taken = 3
+            Tu = (t[peaks[-1]]-t[peaks[-1-num_peaks_taken]])/num_peaks_taken
+            print('Tu: {}'.format(Tu))
 
-    plot(t, step, position, choice, peaks)
-    # TODO: do the following procedure via scripts
+            print('computation method: {}'.format(mode1))
+            print('P, I, D: {}'.format(para_compute(Pamy.pid_list[choice,0],Tu,mode1)))
+
+            print('computation method: {}'.format(mode2))
+            print('P, I, D: {}'.format(para_compute(Pamy.pid_list[choice,0],Tu,mode2)))
+
+            print('computation method: {}'.format(mode3))
+            print('P, I, D: {}'.format(para_compute(Pamy.pid_list[choice,0],Tu,mode3)))
+
+        plot(t, step, position, choice, pressure_ago, pressure_ant, peaks)
+        # TODO: do the following procedure via scripts

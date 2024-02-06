@@ -359,13 +359,13 @@ class RobotGeometry:
             T_go_list.append(T_go)
 
             if T_go-(t_begin+0.1) >= 0.4:
-                if method==1:
+                if method=='with_delay':
                     (p, v, a, j, theta, t_stamp) = self.PathPlanning(time_point=(t_begin*100+10), angle=theta[:,(idx_begin+10)], 
                                                                      velocity_initial=v[:,(idx_begin+10)], acceleration_initial=a[:,(idx_begin+10)], T_go=T_go, target=target, part=0)
                     time_update_record.append(idx_begin+10)
                     idx_begin = 0
                     t_begin += 0.1
-                elif method==2:
+                elif method=='no_delay':
                     (p, v, a, j, theta, t_stamp) = self.PathPlanning(time_point=(t_begin*100), angle=theta[:,(idx_begin)], 
                                                                      velocity_initial=v[:,(idx_begin)], acceleration_initial=a[:,(idx_begin)], T_go=T_go, target=target, part=0)
                     time_update_record.append(idx_begin)
@@ -380,11 +380,11 @@ class RobotGeometry:
                 t_stamp_list.append(t_stamp)
 
             else:
-                if method==1:
+                if method=='with_delay':
                     (p, v, a, j, theta, t_stamp) = self.PathPlanning(time_point=(t_begin*100+10), angle=theta[:,(idx_begin+10)], 
                                                                      velocity_initial=v[:,(idx_begin+10)], acceleration_initial=a[:,(idx_begin+10)], T_go=T_go, target=target, part=0)
                     time_update_record.append(idx_begin+10)
-                elif method==2:
+                elif method=='no_delay':
                     (p, v, a, j, theta, t_stamp) = self.PathPlanning(time_point=(t_begin*100), angle=theta[:,(idx_begin)], 
                                                                      velocity_initial=v[:,(idx_begin)], acceleration_initial=a[:,(idx_begin)], T_go=T_go, target=target, part=0)
                     time_update_record.append(idx_begin)

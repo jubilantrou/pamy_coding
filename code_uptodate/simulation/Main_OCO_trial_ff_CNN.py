@@ -1,10 +1,9 @@
 '''
 This script is used to train the robot for better tracking performance with online convex optimization.
 * [control diagram description] trainable feedforward block and fixed feedback block
-* [ff control policy description] (CNN +) FCN + online gradient descent
-* [fb control policy description] fixed PD controller (PID controller for doing AngleInitialization)
-* [training data description] multiple reference trajectories at the same initial state, with updates 
-w/o (w/) a delay of h/f to mimic possible online replanning
+* [ff control policy description] (CNN +) FCN + online gradient descent/online Newton method
+* [fb control policy description] fixed PD controller (another PID controller to do AngleInitialization)
+* [training data description] multiple reference trajectories, at the same initial state and with mimic updates
 '''
 # %% import libraries
 import PAMY_CONFIG
@@ -25,42 +24,22 @@ import torch.nn as nn
 import o80
 import wandb
 from pyinstrument import Profiler
+from OCO_paras import get_paras
+from OCO_funcs import *
 
-# %% set parameters (TODO: to organize the procedure as an independent file later)
-obj                   = 'sim'                                   # training for the simulator or for the real robot
-coupling              = 'yes'                                   # if to use the references of all degrees of freedom as the input for each CNN, in consideration of the coupling
-nr_channel            = 1                                       # 1 channel for p, which we consider for now, while 3 channels for p, v and a, regarding of the input for CNN
-h_l                   = 0                                       # the extension time point length for the past direction
-h_r                   = 50                                      # the extension time point length for the future direction
-nr_iteration          = 1000                                    # training iterations
-width                 = 3                                       # the width of the input for CNN, indicating using the references of all 3 degrees of freedom
-ds                    = 5                                       # the stride when construct the input
-height                = int((h_l+h_r)/ds)+1                     # the height of the input for CNN
-filter_size           = 7                                       # the kernel size for height dimension in CNN
-learning_rate         = np.array([1.0e-2, 5.0e-1, 1.0e-1])      # learning rates
-seed                  = 5431                                    # chosen seed for the reproducibility
-flag_wandb            = True                                    # if to enable wandb for recording the training process
-flag_time_analysis    = False                                   # if to use pyinstrument to analyse the time consumption of different parts
-flag_time_record      = False                                   # if to show the used time of each iteration
-save_path_num         = 5                                       # the number at the end of the path where we store results
-flag_0_dof            = False                                   # if to include Dof0 in the training procedure, and we set it to False for the simulator as there is a dead zone for Dof0
-method_updating_traj  = 2                                       # the method on how to update the trajectory, 1: update w/ a delay of h=10; 2: update w/o the delay
-
-# %% initialize the gpu and the robot
+# %% initialize the parameters, the gpu and the robot
+# init paras
+paras = get_paras()
+# init gpu and fix random seed
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-if torch.cuda.is_available():
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
 print('device: {}'.format(device))
-
-if obj=='sim':
+fix_seed(paras.seed)
+# init robot
+if paras.obj=='sim':
     handle   = get_handle()
     frontend = handle.frontends["robot"]
-elif obj=='real':
+elif paras.obj=='real':
     frontend = o80_pam.FrontEnd("real_robot")
-else:
-    raise ValueError('The variable obj needs to be assigned either as sim or as real!')
-
 Pamy = PAMY_CONFIG.build_pamy(frontend=frontend)
 RG = RobotGeometry()
 
@@ -69,13 +48,6 @@ def mkdir(path):
     folder = os.path.exists(path)
     if not folder:
         os.makedirs(path)
-
-def fix_seed(seed):
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    random.seed(seed)
-    torch.backends.cudnn.benchmark = False
-    torch.backends.cudnn.deterministic = True
 
 def get_random():
     theta = np.zeros(3)
@@ -88,8 +60,8 @@ def get_random():
 
 
 def get_compensated_data(data=None, option=None):
-    I_left = np.tile(data[:, 0].reshape(-1, 1), (1, h_l))
-    I_right = np.tile(data[:, -1].reshape(-1, 1), (1, h_r))
+    I_left = np.tile(data[:, 0].reshape(-1, 1), (1, paras.h_l))
+    I_right = np.tile(data[:, -1].reshape(-1, 1), (1, paras.h_r))
     if option=='only_left':
         y_ = np.hstack((I_left, data))
     else:
@@ -104,7 +76,7 @@ def get_dataset(y, batch_size=1, option=None, ref=None):
 
     for k in range(l):
         if option is None:
-            y_temp = np.concatenate((y_[0, k:k+(h_l+h_r)+1:ds].reshape(1,-1), y_[1, k:k+(h_l+h_r)+1:ds].reshape(1,-1), y_[2, k:k+(h_l+h_r)+1:ds].reshape(1,-1)), axis=0)
+            y_temp = np.concatenate((y_[0, k:k+(paras.h_l+paras.h_r)+1:paras.ds].reshape(1,-1), y_[1, k:k+(paras.h_l+paras.h_r)+1:paras.ds].reshape(1,-1), y_[2, k:k+(paras.h_l+paras.h_r)+1:paras.ds].reshape(1,-1)), axis=0)
         else:
             choice = 0
             for ele in ref:
@@ -113,10 +85,11 @@ def get_dataset(y, batch_size=1, option=None, ref=None):
                 else:
                     break
             if choice<len(ref):
-                y_temp = np.concatenate((option[choice][0, k:k+(h_l+h_r)+1:ds].reshape(1,-1), option[choice][1, k:k+(h_l+h_r)+1:ds].reshape(1,-1), option[choice][2, k:k+(h_l+h_r)+1:ds].reshape(1,-1)), axis=0)
+                y_temp = np.concatenate((option[choice][0, k:k+(paras.h_l+paras.h_r)+1:paras.ds].reshape(1,-1), option[choice][1, k:k+(paras.h_l+paras.h_r)+1:paras.ds].reshape(1,-1), option[choice][2, k:k+(paras.h_l+paras.h_r)+1:paras.ds].reshape(1,-1)), axis=0)
             else:
-                y_temp = np.concatenate((y_[0, k:k+(h_l+h_r)+1:ds].reshape(1,-1), y_[1, k:k+(h_l+h_r)+1:ds].reshape(1,-1), y_[2, k:k+(h_l+h_r)+1:ds].reshape(1,-1)), axis=0)            
+                y_temp = np.concatenate((y_[0, k:k+(paras.h_l+paras.h_r)+1:paras.ds].reshape(1,-1), y_[1, k:k+(paras.h_l+paras.h_r)+1:paras.ds].reshape(1,-1), y_[2, k:k+(paras.h_l+paras.h_r)+1:paras.ds].reshape(1,-1)), axis=0)            
         # data: (channel x height x width)
+        # y_final = np.concatenate((y_temp, np.sin(y_temp), np.cos(y_temp)), axis=0)
         data.append(torch.tensor(y_temp, dtype=float).view(-1).to(device))
 
     idx = 0
@@ -160,7 +133,7 @@ def get_grads_list(dataset, cnn_list):
 
 def get_step_size(nr, dof, step_size_version='constant'):
     factor = [0.1, 0.1, 0.1]
-    constant_list = np.copy(learning_rate)
+    constant_list = np.copy(paras.lr_list)
     if step_size_version == 'constant':
         step_size = constant_list[dof]
     elif step_size_version == 'sqrt':
@@ -212,7 +185,7 @@ shape_list = []
 idx_list   = []
 idx = 0
 idx_list.append(idx)
-if flag_0_dof:
+if paras.flag_0_dof:
     num_nn = 3
 else:
     num_nn = 2
@@ -223,7 +196,7 @@ def weight_init(l):
         nn.init.normal_(l.bias)
 
 for dof in range(num_nn):
-    cnn = CNN(channel_in=nr_channel, filter_size=filter_size, height=height, width=width)
+    cnn = CNN(channel_in=paras.nr_channel, filter_size=paras.filter_size, height=paras.height, width=paras.width)
     ###
     # for potential pre-trained weights loading
     ###
@@ -247,7 +220,7 @@ for name, param in cnn.named_parameters():
 
 print('the number of trainable parameters: {}'.format(idx_list[-1]))
 
-root_model_epoch = '/home/mtian/Desktop/MPI-intern/training_log_temp_' + str(save_path_num) + '/linear_model' + '/1'
+root_model_epoch = '/home/mtian/Desktop/MPI-intern/training_log_temp_' + str(paras.save_path_num) + '/linear_model' + '/1'
 mkdir(root_model_epoch) 
 for dof in range(num_nn):
     cnn = cnn_list[dof]
@@ -266,54 +239,74 @@ for dof in range(num_nn):
 #     joints = theta[:,j].reshape(-1).tolist()
 #     frontend.add_command(joints,(0,0,0,0),o80.Duration_us.milliseconds(100),o80.Mode.QUEUE)
 #     frontend.pulse_and_wait()
+    
+# flag_time_analysis    = False                                   # if to use pyinstrument to analyse the time consumption of different parts
+# flag_time_record      = False                                   # if to show the used time of each iteration
 
-if flag_wandb:
+if paras.flag_wandb:
     wandb.init(
         entity='jubilantrou',
         project='pamy_oco_trial'
     )
 
-fix_seed(seed)
+fix_seed(paras.seed)
 i_iter = 0
 t_inf = 0
-while 1:
-    if flag_time_analysis:
-        profiler = Profiler()
-        profiler.start()
+newton_temp = [0]*num_nn
 
-    if flag_time_record:
-        t_begin = time.time()
+(t, angle) = get_random()
+(p, v, a, j, theta, t_stamp, theta_list, t_stamp_list, p_int_record, T_go_list, time_update_record, update_point_index_list) = RG.updatedPathPlanning(
+    time_point=0, T_go=t, angle=PAMY_CONFIG.GLOBAL_INITIAL, target=angle, method=paras.method_updating_traj)
+
+aug_ref_traj = []
+for j in range(len(update_point_index_list)):
+    comp = get_compensated_data(np.hstack((theta[:,:update_point_index_list[j]], theta_list[j][:,time_update_record[j]:time_update_record[j]+paras.h_r+1])), option='only_left')
+    comp = comp - comp[:,0].reshape(-1, 1)
+    aug_ref_traj.append(comp)
+
+theta = np.vstack((theta, np.zeros((1, theta.shape[1]))))
+theta_ = np.copy(theta)
+theta = theta - theta[:, 0].reshape(-1, 1)
+Pamy.ImportTrajectory(theta, t_stamp)
+
+while 1:
+    # if flag_time_analysis:
+    #     profiler = Profiler()
+    #     profiler.start()
+
+    # if flag_time_record:
+    #     t_begin = time.time()
 
     print('------------')
     print('iter {}'.format(i_iter+1))
 
-    (t, angle) = get_random()
-    (p, v, a, j, theta, t_stamp, theta_list, t_stamp_list, p_int_record, T_go_list, time_update_record, update_point_index_list) = RG.updatedPathPlanning(
-        time_point=0, T_go=t, angle=PAMY_CONFIG.GLOBAL_INITIAL, target=angle, method=method_updating_traj)
+    # (t, angle) = get_random()
+    # (p, v, a, j, theta, t_stamp, theta_list, t_stamp_list, p_int_record, T_go_list, time_update_record, update_point_index_list) = RG.updatedPathPlanning(
+    #     time_point=0, T_go=t, angle=PAMY_CONFIG.GLOBAL_INITIAL, target=angle, method=method_updating_traj)
     
-    aug_ref_traj = []
-    for j in range(len(update_point_index_list)):
-        comp = get_compensated_data(np.hstack((theta[:,:update_point_index_list[j]], theta_list[j][:,time_update_record[j]:time_update_record[j]+h_r+1])), option='only_left')
-        aug_ref_traj.append(comp)
+    # aug_ref_traj = []
+    # for j in range(len(update_point_index_list)):
+    #     comp = get_compensated_data(np.hstack((theta[:,:update_point_index_list[j]], theta_list[j][:,time_update_record[j]:time_update_record[j]+paras.h_r+1])), option='only_left')
+    #     aug_ref_traj.append(comp)
 
-    theta = np.vstack((theta, np.zeros((1, theta.shape[1]))))
-    theta_ = np.copy(theta)
-    theta = theta - theta[:, 0].reshape(-1, 1)
-    Pamy.ImportTrajectory(theta, t_stamp)
+    # theta = np.vstack((theta, np.zeros((1, theta.shape[1]))))
+    # theta_ = np.copy(theta)
+    # theta = theta - theta[:, 0].reshape(-1, 1)
+    # Pamy.ImportTrajectory(theta, t_stamp)
 
     # val = get_dataset(Pamy.y_desired, option=aug_ref_traj, ref=update_point_index_list)
 
     Pamy.AngleInitialization(PAMY_CONFIG.GLOBAL_INITIAL)
     angle_initial_read = np.array(frontend.latest().get_positions())
     # Pamy.GetOptimizer_convex(angle_initial=angle_initial_read, h=h, nr_channel=nr_channel, coupling=coupling)
-    Pamy.GetOptimizer_convex(angle_initial=angle_initial_read, nr_channel=nr_channel, coupling=coupling)
-    if method_updating_traj==1:
+    Pamy.GetOptimizer_convex(angle_initial=angle_initial_read, nr_channel=paras.nr_channel, coupling=paras.coupling)
+    if paras.method_updating_traj=='with_delay':
         u, t_used = get_prediction(cnn_list, Pamy.y_desired)
-    elif method_updating_traj==2:
+    elif paras.method_updating_traj=='no_delay':
         u, t_used = get_prediction(cnn_list, Pamy.y_desired, aug_ref_traj, update_point_index_list)
     t_inf += t_used
 
-    (y, ff, fb, obs_ago, obs_ant) = Pamy.online_convex_optimization(b_list=u, mode_name='ff+fb', coupling=coupling, learning_mode='u')
+    (y, ff, fb, obs_ago, obs_ant) = Pamy.online_convex_optimization(b_list=u, mode_name='ff+fb', coupling=paras.coupling, learning_mode='u')
     y_out = y - y[:, 0].reshape(-1, 1)
 
     print('initial:')
@@ -324,7 +317,7 @@ while 1:
     print(y[:,0])
 
     if (i_iter+1)%20==0:
-        root_file = '/home/mtian/Desktop/MPI-intern/training_log_temp_'+ str(save_path_num) +'/linear_model/log_data/' + str(i_iter+1)
+        root_file = '/home/mtian/Desktop/MPI-intern/training_log_temp_'+ str(paras.save_path_num) +'/linear_model/log_data/' + str(i_iter+1)
         mkdir(root_file)
         file = open(root_file + '/log.txt', 'wb')
         pickle.dump(t_stamp, file, -1)
@@ -344,7 +337,8 @@ while 1:
     
     if_plot_pressure = 1
     plots = []
-    if if_plot_pressure and (i_iter+1)%50==0:
+    # if if_plot_pressure and (i_iter+1)%50==0:
+    if if_plot_pressure:
         legend_position = 'best'
         fig1 = plt.figure(figsize=(18, 18))
 
@@ -403,7 +397,8 @@ while 1:
     if_joint = 0
     if_cylinder = 0
 
-    if if_plot and (i_iter+1)%50==0:
+    # if if_plot and (i_iter+1)%50==0:
+    if if_plot:
         legend_position = 'best'
         fig = plt.figure(figsize=(18, 18))
 
@@ -612,12 +607,12 @@ while 1:
                 if row>1:
                     temp[row, row-2] = -Pamy.pid_for_tracking[dof,2]*100
         part4.append(temp)
-    if method_updating_traj==1:
+    if paras.method_updating_traj=='with_delay':
         part3 = get_grads_list(get_dataset(Pamy.y_desired), cnn_list) # num_nn
-    elif method_updating_traj==2:
+    elif paras.method_updating_traj=='no_delay':
         part3 = get_grads_list(get_dataset(Pamy.y_desired, option=aug_ref_traj, ref=update_point_index_list), cnn_list) # num_nn
     part2 = [Pamy.O_list[i].Bu for i in PAMY_CONFIG.dof_list] # 4
-    part1_temp = (y-theta_)/math.pi*180
+    part1_temp = (y-theta_)
     part1 = [part1_temp[i].reshape(1,-1) for i in range(len(part1_temp))] # 4
     loss = [np.linalg.norm(part1_temp[i].reshape(1,-1)) for i in range(len(part1_temp))]
 
@@ -629,16 +624,26 @@ while 1:
 
     for dof in range(num_nn):
         if num_nn==2:
-            delta = (learning_rate[dof+1]*part1[dof+1]@np.linalg.pinv(np.eye(Pamy.y_desired.shape[1])+part2[dof+1]@part4[dof])@part2[dof+1]@part3[dof]).reshape(-1, 1)
+            delta_temp = np.linalg.pinv(np.eye(Pamy.y_desired.shape[1])+part2[dof+1]@part4[dof])@part2[dof+1]@part3[dof]
+            if paras.method_updating_policy == 'GD':
+                delta = (paras.lr_list[dof+1]*part1[dof+1]@delta_temp).reshape(-1, 1)
+            elif paras.method_updating_policy == 'NM':
+                newton_temp[dof] = 0*delta_temp.T@delta_temp+0*paras.alpha_list[dof+1]*part3[dof].T@part3[dof]+paras.epsilon_list[dof+1]*np.eye(part3[0].shape[1])
+                delta = (paras.lr_list[dof+1]*np.linalg.pinv(newton_temp[dof])@delta_temp.T@part1[dof].T).reshape(-1 ,1)
         elif num_nn==3:
-            delta = (learning_rate[dof]*part1[dof]@np.linalg.pinv(np.eye(Pamy.y_desired.shape[1])+part2[dof]@part4[dof])@part2[dof]@part3[dof]).reshape(-1, 1)
+            delta_temp = np.linalg.pinv(np.eye(Pamy.y_desired.shape[1])+part2[dof]@part4[dof])@part2[dof]@part3[dof]
+            if paras.method_updating_policy == 'GD':
+                delta = (paras.lr_list[dof]*part1[dof]@delta_temp).reshape(-1, 1)
+            elif paras.method_updating_policy == 'NM':
+                newton_temp[dof] += delta_temp.T@delta_temp+paras.alpha_list[dof]*part3[dof].T@part3[dof]+paras.epsilon_list[dof]*np.eye(part3[0].shape[1])
+                delta = (paras.lr_list[dof]*np.linalg.pinv(newton_temp[dof]/(i_iter+1))@delta_temp.T@part1[dof].T).reshape(-1 ,1)
         W_list[dof] = W_list[dof] - delta
     
     cnn_list = set_parameters(W_list, cnn_list, idx_list, shape_list)
     print('end {}. optimization'.format(i_iter+1))
 
     if (i_iter+1)%100==0:
-        root_model_epoch = '/home/mtian/Desktop/MPI-intern/training_log_temp_'+ str(save_path_num) +'/linear_model' + '/' + str(i_iter+1)
+        root_model_epoch = '/home/mtian/Desktop/MPI-intern/training_log_temp_'+ str(paras.save_path_num) +'/linear_model' + '/' + str(i_iter+1)
         mkdir(root_model_epoch) 
         for dof in range(num_nn):
             cnn = cnn_list[dof]
@@ -650,15 +655,15 @@ while 1:
     print(t_inf/(i_iter+1))
     print('loss:')
     print(loss)
-    if flag_wandb:
-        wandb.log({'loss_0': loss[0]/t_stamp[-1], 'loss_1': loss[1]/t_stamp[-1], 'loss_2': loss[2]/t_stamp[-1]}, i_iter+1)
+    if paras.flag_wandb:
+        wandb.log({'loss_0': loss[0]/t_stamp[-1]/math.pi*180, 'loss_1': loss[1]/t_stamp[-1]/math.pi*180, 'loss_2': loss[2]/t_stamp[-1]/math.pi*180}, i_iter+1)
 
     i_iter += 1
 
-    if flag_time_record:
-        t_end = time.time()
-        print('used time: {}'.format(t_end-t_begin))
+    # if flag_time_record:
+    #     t_end = time.time()
+    #     print('used time: {}'.format(t_end-t_begin))
 
-    if flag_time_analysis:
-        profiler.stop()
-        print(profiler.output_text(unicode=True, color=True))
+    # if flag_time_analysis:
+    #     profiler.stop()
+    #     print(profiler.output_text(unicode=True, color=True))

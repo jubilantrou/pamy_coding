@@ -1,7 +1,7 @@
 '''
-This script is used to decide the ultimate gain and the oscillation period, 
-which can be used to find proper groups of PID parameters for the robot 
-with Ziegler-Nichols method.
+This script is used to decide the ultimate gain and the oscillation period 
+of each Dof, which can be used to find proper groups of PID parameters for 
+the robot with the Ziegler-Nichols method.
 '''
 # %% import libraries
 import PAMY_CONFIG
@@ -14,9 +14,9 @@ from RealRobotGeometry import RobotGeometry
 import scipy
 
 # %% set parameters
-obj = 'real' # for the simulator or the real robot
-choice = 3 # which Dof to do test for
-amp = 30/180*math.pi # the increased amplitude of the input step signal based on the initial position
+obj = 'sim' # for the simulator or the real robot
+choice = 2 # for which Dof to do the experiment
+amp = 25/180*math.pi # the increased amplitude of the input step signal based on the initial position
 t_start = 0.5 # the starting time of the step signal
 t_duration = 5.0 # the whole time length for recording and plotting
 mode1 = 'no overshoot' # the name of control type for Ziegler-Nichols method
@@ -41,7 +41,7 @@ def mkdir(path):
     if not folder:
         os.makedirs(path)
 
-def plot(t, ref, result, choice, p_ago, p_ant, peaks=None):
+def plot(t, ref, result, choice, p_ago=None, p_ant=None, peaks=None):
     fig = plt.figure(figsize=(18, 18))
     ax_position0 = fig.add_subplot(121)
     plt.xlabel(r'Time in s')
@@ -55,14 +55,14 @@ def plot(t, ref, result, choice, p_ago, p_ant, peaks=None):
         line_temp, = ax_position0.plot(t[peaks], result[peaks] * 180 / math.pi, 'x', label='output peaks detected')
         line.append( line_temp )
     
-    ax_position1 = fig.add_subplot(122)
-    plt.xlabel(r'Time in s')
-    plt.ylabel(r'Pressure of Dof_' + str(choice))
-    line = []
-    line_temp, = ax_position1.plot(t, p_ago, linewidth=2, label='ago pressure')
-    line.append( line_temp )
-    line_temp, = ax_position1.plot(t, p_ant, linewidth=2, label='ant pressure')
-    line.append( line_temp )
+    # ax_position1 = fig.add_subplot(122)
+    # plt.xlabel(r'Time in s')
+    # plt.ylabel(r'Pressure of Dof_' + str(choice))
+    # line = []
+    # line_temp, = ax_position1.plot(t, p_ago, linewidth=2, label='ago pressure')
+    # line.append( line_temp )
+    # line_temp, = ax_position1.plot(t, p_ant, linewidth=2, label='ant pressure')
+    # line.append( line_temp )
 
     plt.legend(handles=line, shadow=True)
     plt.grid()
@@ -92,7 +92,7 @@ if __name__ == '__main__':
         Pamy.PressureInitialization(duration=4)
     
     else:
-        (t, step, position, pressure_ago, pressure_ant) = Pamy.PIDTesting(choice = choice, amp = amp, t_start = t_start, t_duration = t_duration)
+        (t, step, position) = Pamy.PIDTesting(choice = choice, amp = amp, t_start = t_start, t_duration = t_duration)
         Pamy.PressureInitialization(duration=4)
 
         ready_to_process = 0
@@ -112,5 +112,5 @@ if __name__ == '__main__':
             print('computation method: {}'.format(mode3))
             print('P, I, D: {}'.format(para_compute(Pamy.pid_list[choice,0],Tu,mode3)))
 
-        plot(t, step, position, choice, pressure_ago, pressure_ant, peaks)
+        plot(t, step, position, choice, peaks)
         # TODO: do the following procedure via scripts

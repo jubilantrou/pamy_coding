@@ -28,294 +28,238 @@ from OCO_paras import get_paras
 from OCO_funcs import *
 
 # %% initialize the parameters, the gpu and the robot
-# init paras
 paras = get_paras()
-# init gpu and fix random seed
+
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print('device: {}'.format(device))
 fix_seed(paras.seed)
-# init robot
+
 if paras.obj=='sim':
     handle   = get_handle()
     frontend = handle.frontends["robot"]
 elif paras.obj=='real':
     frontend = o80_pam.FrontEnd("real_robot")
-Pamy = PAMY_CONFIG.build_pamy(frontend=frontend)
+Pamy = PAMY_CONFIG.build_pamy(frontend=frontend, obj=paras.obj)
 RG = RobotGeometry()
 
 # %% create functions (TODO: to organize often used ones as an independent script)
 def mkdir(path):
     folder = os.path.exists(path)
     if not folder:
-        os.makedirs(path)
+        os.makedirs(path)    
 
-def get_random():
-    theta = np.zeros(3)
-    theta[0] = random.choice([random.randrange(-700, -250)/10, random.randrange(250, 700)/10])
-    theta[1] = random.randrange(150, 750)/10
-    theta[2] = random.randrange(150, 750)/10
-    t        = random.randrange(90, 100)/100
-    theta    = theta * math.pi/180
-    return (t, theta)
+# %% define trainable blocks
+def weight_init(layer):
+    '''
+    to initialize the weights in your own way
+    '''
+    if isinstance(layer,nn.Conv2d) or isinstance(layer,nn.Linear):
+        nn.init.zeros_(layer.weight)
+        if layer.bias is not None:
+            nn.init.zeros_(layer.bias)
 
-
-def get_compensated_data(data=None, option=None):
-    I_left = np.tile(data[:, 0].reshape(-1, 1), (1, paras.h_l))
-    I_right = np.tile(data[:, -1].reshape(-1, 1), (1, paras.h_r))
-    if option=='only_left':
-        y_ = np.hstack((I_left, data))
-    else:
-        y_ = np.hstack((I_left, data, I_right))
-    return y_    
-
-def get_dataset(y, batch_size=1, option=None, ref=None):
-    l = y.shape[1]
-    y_ = get_compensated_data(y)
-    data = []
-    dataset = []
-
-    for k in range(l):
-        if option is None:
-            y_temp = np.concatenate((y_[0, k:k+(paras.h_l+paras.h_r)+1:paras.ds].reshape(1,-1), y_[1, k:k+(paras.h_l+paras.h_r)+1:paras.ds].reshape(1,-1), y_[2, k:k+(paras.h_l+paras.h_r)+1:paras.ds].reshape(1,-1)), axis=0)
-        else:
-            choice = 0
-            for ele in ref:
-                if k>ele:
-                    choice += 1
-                else:
-                    break
-            if choice<len(ref):
-                y_temp = np.concatenate((option[choice][0, k:k+(paras.h_l+paras.h_r)+1:paras.ds].reshape(1,-1), option[choice][1, k:k+(paras.h_l+paras.h_r)+1:paras.ds].reshape(1,-1), option[choice][2, k:k+(paras.h_l+paras.h_r)+1:paras.ds].reshape(1,-1)), axis=0)
-            else:
-                y_temp = np.concatenate((y_[0, k:k+(paras.h_l+paras.h_r)+1:paras.ds].reshape(1,-1), y_[1, k:k+(paras.h_l+paras.h_r)+1:paras.ds].reshape(1,-1), y_[2, k:k+(paras.h_l+paras.h_r)+1:paras.ds].reshape(1,-1)), axis=0)            
-        # data: (channel x height x width)
-        # y_final = np.concatenate((y_temp, np.sin(y_temp), np.cos(y_temp)), axis=0)
-        data.append(torch.tensor(y_temp, dtype=float).view(-1).to(device))
-
+def trainable_blocks_init(paras):
+    '''
+    to initialize the trainable policy blocks
+    '''
+    cnn_list   = []
+    name_list  = []
+    shape_list = []
+    idx_list   = []
     idx = 0
-    while idx + batch_size - 1 < l:
-        data_ = data[idx:idx+batch_size]
-        batch = torch.stack(data_)
-        # elements in dataset: batchsize x (channel x height x width)
-        dataset.append(batch)
-        idx += batch_size
-
-    return dataset
-
-def get_grads_list(dataset, cnn_list):
-    X_list = []
-
-    for cnn in cnn_list:
-        cnn.train()
-        for param in cnn.parameters():
-            if param.grad is None:
-                break
-            param.grad.zero_()
-
-        flag = True
-        for data in dataset:
-            grad = []
-            try:
-                cnn(data.float()).mean().backward()
-            except:
-                cnn(data).mean().backward()                       
-            for param in cnn.parameters():
-                grad.append(torch.clone(param.grad.cpu().view(-1)))
-                param.grad.zero_()
-                
-            grads = torch.cat(grad)            
-            grads_ = np.copy(grads.reshape(1, -1)) if flag else np.concatenate((grads_, grads.reshape(1, -1)), axis=0)
-            flag = False if flag else False
-
-        X_list.append(grads_)
-
-    return X_list
-
-def get_step_size(nr, dof, step_size_version='constant'):
-    factor = [0.1, 0.1, 0.1]
-    constant_list = np.copy(paras.lr_list)
-    if step_size_version == 'constant':
-        step_size = constant_list[dof]
-    elif step_size_version == 'sqrt':
-        step_size = factor[dof]/(2+np.sqrt(nr))
-    return step_size 
-
-def set_parameters(W_list, cnn_list, idx_list, shape_list):
-    for dof in range(len(cnn_list)):
-        W = W_list[dof]
-        cnn = cnn_list[dof]
-        i = 0
-        for param in cnn.parameters():
-            idx_1 = idx_list[i]
-            idx_2 = idx_list[i+1]
-            W_ = torch.tensor(W[idx_1:idx_2]).view(shape_list[i])
-            param.data = W_.to(device)
-            i += 1
-    return cnn_list
-
-def get_prediction(cnn_list, y, option=None, ref=None):
-    t_begin = time.time()
-    dataset = get_dataset(y, batch_size=y.shape[1], option=option, ref=ref)
-    u = np.zeros(y.shape)
-    num = len(cnn_list)
-    if num==2:
-        for dof in range(num):
-            cnn = cnn_list[dof]
-            cnn.eval()
-            try:
-                u[dof+1, :] = cnn(dataset[0]).cpu().detach().numpy().flatten()
-            except:
-                u[dof+1, :] = cnn(dataset[0].float()).cpu().detach().numpy().flatten()
-    elif num==3:
-        for dof in range(num):
-            cnn = cnn_list[dof]
-            cnn.eval()
-            try:
-                u[dof, :] = cnn(dataset[0]).cpu().detach().numpy().flatten()
-            except:
-                u[dof, :] = cnn(dataset[0].float()).cpu().detach().numpy().flatten()
-    t_end = time.time()
-    t_used = t_end - t_begin
-    return u, t_used
-
-# %% define the cnn
-cnn_list   = []
-name_list  = []
-shape_list = []
-idx_list   = []
-idx = 0
-idx_list.append(idx)
-if paras.flag_0_dof:
-    num_nn = 3
-else:
-    num_nn = 2
-
-def weight_init(l):
-    if isinstance(l,nn.Conv2d) or isinstance(l,nn.Linear):
-        nn.init.xavier_normal_(l.weight,gain=0.1)
-        nn.init.normal_(l.bias)
-
-for dof in range(num_nn):
-    cnn = CNN(channel_in=paras.nr_channel, filter_size=paras.filter_size, height=paras.height, width=paras.width)
-    ###
-    # for potential pre-trained weights loading
-    ###
-    # temp = torch.load('/home/mtian/Desktop/MPI-intern/training_log_temp/180/' + str(dof))
-    # cnn.load_state_dict(temp)
-
-    ###
-    # for self-defined method of weights initialization
-    ###
-    # cnn.apply(weight_init)
-
-    cnn.to(device)
-    cnn_list.append(cnn)
-
-for name, param in cnn.named_parameters():
-    name_list.append(name)
-    shape_list.append(param.shape)
-    d_idx = len(param.data.view(-1))
-    idx += d_idx
     idx_list.append(idx)
 
-print('the number of trainable parameters: {}'.format(idx_list[-1]))
+    for dof in paras.flag_dof:
+        if not dof:
+            cnn_list.append(None)
+        else:
+            cnn = CNN(channel_in=paras.nr_channel, filter_size=paras.filter_size, height=paras.height, width=paras.width)
+            ### for pre-trained weights loading
+            # temp = torch.load('target_address')
+            # cnn.load_state_dict(temp)
+            ### for self-defined weights initialization
+            # cnn.apply(weight_init)
+            cnn.to(device)
+            cnn_list.append(cnn)
 
-root_model_epoch = '/home/mtian/Desktop/MPI-intern/training_log_temp_' + str(paras.save_path_num) + '/linear_model' + '/1'
-mkdir(root_model_epoch) 
-for dof in range(num_nn):
-    cnn = cnn_list[dof]
-    root_file = root_model_epoch + '/' + str(dof)
-    # print('paras of {}: {}'.format(dof, cnn.state_dict()))
-    torch.save(cnn.state_dict(), root_file)
+    for name, param in cnn.named_parameters():
+        name_list.append(name)
+        shape_list.append(param.shape)
+        d_idx = len(param.data.view(-1))
+        idx += d_idx
+        idx_list.append(idx)
+
+    print('the number of trainable parameters: {}'.format(idx_list[-1]))
+    print(len(shape_list))
+
+    return cnn_list, shape_list, idx_list
+
+cnn_list, shape_list, idx_list = trainable_blocks_init(paras)
 
 # %% do the online learning
-###
-# to visualize the target point 'p_int' and the planned trajectory 'theta' in the simulator
-###
-# hit_point = handle.frontends["hit_point"]
-# hit_point.add_command(p_int.reshape(-1).tolist(),(0,0,0),o80.Duration_us.seconds(1),o80.Mode.QUEUE)
-# hit_point.pulse_and_wait()
-# for j in range(len(t_stamp)):
-#     joints = theta[:,j].reshape(-1).tolist()
-#     frontend.add_command(joints,(0,0,0,0),o80.Duration_us.milliseconds(100),o80.Mode.QUEUE)
-#     frontend.pulse_and_wait()
-    
-# flag_time_analysis    = False                                   # if to use pyinstrument to analyse the time consumption of different parts
-# flag_time_record      = False                                   # if to show the used time of each iteration
-
 if paras.flag_wandb:
     wandb.init(
         entity='jubilantrou',
         project='pamy_oco_trial'
     )
 
-fix_seed(paras.seed)
 i_iter = 0
-t_inf = 0
-newton_temp = [0]*num_nn
+if paras.method_updating_policy == 'NM':
+    hessian_temp = []
+    for dof in paras.flag_dof:
+        if not dof:
+            hessian_temp.append(None)
+        else:
+            hessian_temp.append(0)
+W_list = []
+for cnn in cnn_list:
+    if cnn is None:
+        W_list.append(None)
+    else:    
+        W = []
+        [W.append(param.data.view(-1)) for param in cnn.parameters()]
+        W = torch.cat(W)
+        W_list.append(W.cpu().numpy().reshape(-1, 1))
 
-(t, angle) = get_random()
-(p, v, a, j, theta, t_stamp, theta_list, t_stamp_list, p_int_record, T_go_list, time_update_record, update_point_index_list) = RG.updatedPathPlanning(
-    time_point=0, T_go=t, angle=PAMY_CONFIG.GLOBAL_INITIAL, target=angle, method=paras.method_updating_traj)
+# for i in range(1):
+#     (t, angle) = get_random()
+# (p, v, a, j, theta, t_stamp, theta_list, t_stamp_list, p_int_record, T_go_list, time_update_record, update_point_index_list) = RG.updatedPathPlanning(
+#     time_point=0, T_go=t, angle=PAMY_CONFIG.GLOBAL_INITIAL, target=angle, method=paras.method_updating_traj)
+# aug_ref_traj = []
+# for j in range(len(update_point_index_list)):
+#     comp = get_compensated_data(data=np.hstack((theta[:,:update_point_index_list[j]], theta_list[j][:,time_update_record[j]:])), h_l=paras.h_l, h_r=paras.h_r, option='only_left')
+#     comp = comp - comp[:,0].reshape(-1, 1) # rel
+#     aug_ref_traj.append(comp)
 
-aug_ref_traj = []
-for j in range(len(update_point_index_list)):
-    comp = get_compensated_data(np.hstack((theta[:,:update_point_index_list[j]], theta_list[j][:,time_update_record[j]:time_update_record[j]+paras.h_r+1])), option='only_left')
-    comp = comp - comp[:,0].reshape(-1, 1)
-    aug_ref_traj.append(comp)
+# theta = np.vstack((theta, np.zeros((1, theta.shape[1]))))
+# theta_ = np.copy(theta)
+# theta = theta - theta[:, 0].reshape(-1, 1) # rel
+# Pamy.ImportTrajectory(theta, t_stamp)
 
-theta = np.vstack((theta, np.zeros((1, theta.shape[1]))))
-theta_ = np.copy(theta)
-theta = theta - theta[:, 0].reshape(-1, 1)
-Pamy.ImportTrajectory(theta, t_stamp)
+log_min = []
+log_max = []
+log_1 = []
+log_2 = []
 
-while 1:
-    # if flag_time_analysis:
-    #     profiler = Profiler()
-    #     profiler.start()
+while True:
+    if paras.flag_time_analysis:
+        profiler = Profiler()
+        profiler.start()
 
-    # if flag_time_record:
-    #     t_begin = time.time()
-
-    print('------------')
+    print('-'*30)
     print('iter {}'.format(i_iter+1))
+    print('-'*30)
 
-    # (t, angle) = get_random()
-    # (p, v, a, j, theta, t_stamp, theta_list, t_stamp_list, p_int_record, T_go_list, time_update_record, update_point_index_list) = RG.updatedPathPlanning(
-    #     time_point=0, T_go=t, angle=PAMY_CONFIG.GLOBAL_INITIAL, target=angle, method=method_updating_traj)
-    
-    # aug_ref_traj = []
-    # for j in range(len(update_point_index_list)):
-    #     comp = get_compensated_data(np.hstack((theta[:,:update_point_index_list[j]], theta_list[j][:,time_update_record[j]:time_update_record[j]+paras.h_r+1])), option='only_left')
-    #     aug_ref_traj.append(comp)
+    (t, angle) = get_random()
+    (p, v, a, j, theta, t_stamp, theta_list, t_stamp_list, p_int_record, T_go_list, time_update_record, update_point_index_list) = RG.updatedPathPlanning(
+        time_point=0, T_go=t, angle=PAMY_CONFIG.GLOBAL_INITIAL, target=angle, method=paras.method_updating_traj)
+    aug_ref_traj = []
+    for j in range(len(update_point_index_list)):
+        comp = get_compensated_data(data=np.hstack((theta[:,:update_point_index_list[j]], theta_list[j][:,time_update_record[j]:])), h_l=paras.h_l, h_r=paras.h_r, option='only_left')
+        comp = comp - comp[:,0].reshape(-1, 1) # rel
+        aug_ref_traj.append(comp)
 
-    # theta = np.vstack((theta, np.zeros((1, theta.shape[1]))))
-    # theta_ = np.copy(theta)
-    # theta = theta - theta[:, 0].reshape(-1, 1)
-    # Pamy.ImportTrajectory(theta, t_stamp)
-
-    # val = get_dataset(Pamy.y_desired, option=aug_ref_traj, ref=update_point_index_list)
+    theta = np.vstack((theta, np.zeros((1, theta.shape[1]))))
+    theta_ = np.copy(theta)
+    theta = theta - theta[:, 0].reshape(-1, 1) # rel
+    Pamy.ImportTrajectory(theta, t_stamp)
 
     Pamy.AngleInitialization(PAMY_CONFIG.GLOBAL_INITIAL)
     angle_initial_read = np.array(frontend.latest().get_positions())
-    # Pamy.GetOptimizer_convex(angle_initial=angle_initial_read, h=h, nr_channel=nr_channel, coupling=coupling)
     Pamy.GetOptimizer_convex(angle_initial=angle_initial_read, nr_channel=paras.nr_channel, coupling=paras.coupling)
-    if paras.method_updating_traj=='with_delay':
-        u, t_used = get_prediction(cnn_list, Pamy.y_desired)
-    elif paras.method_updating_traj=='no_delay':
-        u, t_used = get_prediction(cnn_list, Pamy.y_desired, aug_ref_traj, update_point_index_list)
-    t_inf += t_used
+    datapoint = get_datapoint(y=Pamy.y_desired, h_l=paras.h_l, h_r=paras.h_r, ds=paras.ds, device=device, sub_traj=aug_ref_traj, ref=update_point_index_list)
+    # datapoint = get_datapoint(y=Pamy.y_desired, h_l=paras.h_l, h_r=paras.h_r, ds=paras.ds, device=device)
+    u = get_prediction(datapoint=datapoint, cnn_list=cnn_list, y=Pamy.y_desired)
 
     (y, ff, fb, obs_ago, obs_ant) = Pamy.online_convex_optimization(b_list=u, mode_name='ff+fb', coupling=paras.coupling, learning_mode='u')
-    y_out = y - y[:, 0].reshape(-1, 1)
+    # y[2,:] = math.pi/2 - y[2,:]
+    y_out = y - y[:, 0].reshape(-1, 1) #rel
 
-    print('initial:')
-    print(PAMY_CONFIG.GLOBAL_INITIAL)
-    print('des:')
-    print(theta_[:,0])
-    print('real:')
-    print(y[:,0])
+    print('pressure check:')
+    print('dof 0: {} ~ {}'.format(min(ff[0,:]),max(ff[0,:])))
+    print('dof 1: {} ~ {}'.format(min(ff[1,:]),max(ff[1,:])))
+    print('dof 2: {} ~ {}'.format(min(ff[2,:]),max(ff[2,:])))
 
+    if paras.flag_wandb:
+        wandb_plot(i_iter=i_iter, frequency=10, t_stamp=t_stamp, ff=ff, fb=fb, y=y, theta_=theta_, t_stamp_list=t_stamp_list, theta_list=theta_list, T_go_list=T_go_list, p_int_record=p_int_record)
+
+    def get_par_paifb_par_y(flag_dof, dim, pid):
+        par_paifb_par_y = []
+        for dof,flag in enumerate(flag_dof):
+            if not flag:
+                par_paifb_par_y.append(None)
+            else:
+                temp = np.zeros((dim,dim))
+                for row in range(1,dim):
+                    temp[row, row-1] = pid[dof,0]+pid[dof,2]*100
+                    if row>1:
+                        temp[row, row-2] = -pid[dof,2]*100
+                par_paifb_par_y.append(temp)
+        return par_paifb_par_y
+    '''
+    Nt x Nt
+    '''            
+    par_paifb_par_y = get_par_paifb_par_y(flag_dof=paras.flag_dof, dim=Pamy.y_desired.shape[1], pid=Pamy.pid_for_tracking)
+
+    '''
+    Nt x nff
+    '''
+    par_paiff_par_wff = get_grads_list(dataset=get_dataset(datapoint=datapoint, batch_size=1), cnn_list=cnn_list)
+    
+    '''
+    Nt x Nt
+    ''' 
+    par_G_par_u = [Pamy.O_list[i].Bu for i in PAMY_CONFIG.dof_list][:3]
+
+    '''
+    1 x Nt
+    ''' 
+    par_l_par_y = [(y-theta_)[i].reshape(1,-1) for i in range(len(y))][:3]
+
+    '''
+    Nt x nff
+    '''
+    par_y_par_wff = []
+    for dof,flag in enumerate(paras.flag_dof):
+        if not flag:
+            par_y_par_wff.append(None)
+        else:
+            temp = np.linalg.pinv(np.eye(Pamy.y_desired.shape[1])+par_G_par_u[dof]@par_paifb_par_y[dof])@par_G_par_u[dof]@par_paiff_par_wff[dof]
+            par_y_par_wff.append(temp)
+
+    def get_new_parameters(W_list, method, lr, par_l_par_y, par_y_par_wff, par_paiff_par_wff):
+        for dof in range(len(par_l_par_y)):
+            if par_y_par_wff[dof] is None:
+                W_list[dof] = None
+                continue
+            if method == 'GD':
+                delta = (lr[dof]*par_l_par_y[dof]@par_y_par_wff[dof]).reshape(-1, 1)
+            elif method == 'NM':
+                hessian_temp[dof] += par_y_par_wff[dof].T@par_y_par_wff[dof]+paras.alpha_list[dof]*par_paiff_par_wff[dof].T@par_paiff_par_wff[dof]+paras.epsilon_list[dof]*np.eye(par_paiff_par_wff[dof].shape[1])
+                delta = (lr[dof]*np.linalg.pinv(hessian_temp[dof]/(i_iter+1))@par_y_par_wff[dof].T@par_l_par_y[dof].T).reshape(-1 ,1)
+            W_list[dof] = W_list[dof] - delta
+        return W_list, delta
+    
+    W_list, delta = get_new_parameters(W_list=W_list, method=paras.method_updating_policy, lr=paras.lr_list, par_l_par_y=par_l_par_y, par_y_par_wff=par_y_par_wff, par_paiff_par_wff=par_paiff_par_wff)
+    log_min.append(min(delta))
+    log_max.append(max(delta))
+    log_1.append(par_l_par_y[2])
+    log_2.append(par_y_par_wff[2])
+    
+    cnn_list = set_parameters(W_list, cnn_list, idx_list, shape_list, device)
+
+    # if (i_iter+1)>30:
+    #     time.sleep(0.1)
+
+    if (i_iter+1)%100==0:
+        root_model_epoch = '/home/mtian/Desktop/MPI-intern/training_log_temp_'+ str(paras.save_path_num) +'/linear_model' + '/' + str(i_iter+1)
+        mkdir(root_model_epoch) 
+        for dof,cnn in enumerate(cnn_list):
+            if cnn is None:
+                continue
+            root_file = root_model_epoch + '/' + str(dof)
+            torch.save(cnn.state_dict(), root_file)
+    
     if (i_iter+1)%20==0:
         root_file = '/home/mtian/Desktop/MPI-intern/training_log_temp_'+ str(paras.save_path_num) +'/linear_model/log_data/' + str(i_iter+1)
         mkdir(root_file)
@@ -330,329 +274,8 @@ while 1:
         pickle.dump(obs_ant, file, -1)
         file.close()
 
-    print('pressure check:')
-    print('dof 0: {} ~ {}'.format(min(ff[0,:]),max(ff[0,:])))
-    print('dof 1: {} ~ {}'.format(min(ff[1,:]),max(ff[1,:])))
-    print('dof 2: {} ~ {}'.format(min(ff[2,:]),max(ff[2,:])))
-    
-    if_plot_pressure = 1
-    plots = []
-    # if if_plot_pressure and (i_iter+1)%50==0:
-    if if_plot_pressure:
-        legend_position = 'best'
-        fig1 = plt.figure(figsize=(18, 18))
-
-        ax1_position0 = fig1.add_subplot(311)
-        plt.xlabel(r'Time $t$ in s')
-        plt.ylabel(r'Pressure Input for Dof_0')
-        line = []
-        line_temp, = ax1_position0.plot(t_stamp, u[0, :], linewidth=2, label=r'uff_Dof0')
-        line.append( line_temp )
-        line_temp, = ax1_position0.plot(t_stamp, fb[0, :], linewidth=2, label=r'ufb_Dof0')
-        line.append( line_temp )
-        plt.legend(handles=line, loc=legend_position, shadow=True)
-            
-        ax1_position1 = fig1.add_subplot(312)
-        plt.xlabel(r'Time $t$ in s')
-        plt.ylabel(r'Pressure Input for Dof_1')
-        line = []
-        line_temp, = ax1_position1.plot(t_stamp, u[1, :], linewidth=2, label=r'uff_Dof1')
-        line.append( line_temp )
-        line_temp, = ax1_position1.plot(t_stamp, fb[1, :], linewidth=2, label=r'ufb_Dof1')
-        line.append( line_temp )
-        plt.legend(handles=line, loc=legend_position, shadow=True)
-        
-        ax1_position2 = fig1.add_subplot(313)
-        plt.xlabel(r'Time $t$ in s')
-        plt.ylabel(r'Pressure Input for Dof_2')
-        line = []
-        line_temp, = ax1_position2.plot(t_stamp, u[2, :], linewidth=2, label=r'uff_Dof2')
-        line.append( line_temp )
-        line_temp, = ax1_position2.plot(t_stamp, fb[2, :], linewidth=2, label=r'ufb_Dof2')
-        line.append( line_temp )
-        plt.legend(handles=line, loc=legend_position, shadow=True)
-
-        plt.suptitle('Pressure Input'+' Iter '+str(i_iter+1))
-        plots.append(wandb.Image(plt, caption="matplotlib image"))                
-        # plt.show()
-
-    ###
-    # to plot the information about the reference trajectory and the real trajectory
-    ###
-    # TODO: not exactly the same starting point
-    def get_difference(x):
-        y = np.zeros(x.shape)
-        for i in range(1, y.shape[1]):
-            y[:, i] = (x[:, i]-x[:, i-1])/(t_stamp[i]-t_stamp[i-1])
-        return y
-    v_y = get_difference(y)
-    a_y = get_difference(v_y)
-    y_cylinder = np.zeros((3,y.shape[1]))
-    for i in range(y.shape[1]):
-        (_,end) = RG.AngleToEnd(y[:3,i], frame='Cylinder')
-        y_cylinder[:,i] = end
-
-    if_plot = 1
-    if_both = 0
-    if_joint = 0
-    if_cylinder = 0
-
-    # if if_plot and (i_iter+1)%50==0:
-    if if_plot:
-        legend_position = 'best'
-        fig = plt.figure(figsize=(18, 18))
-
-        ax_position0 = fig.add_subplot(311)
-        plt.xlabel(r'Time $t$ in s')
-        plt.ylabel(r'Position of Dof_0 in degree')
-        line = []
-        line_temp, = ax_position0.plot(t_stamp, y[0, :] * 180 / math.pi, linewidth=2, label=r'Pos_Dof0_out')
-        line.append( line_temp )
-        line_temp, = ax_position0.plot(t_stamp, theta_[0, :] * 180 / math.pi, linewidth=2, label=r'Pos_Dof0_des')
-        line.append( line_temp )
-        for j in range(len(theta_list)):
-            line_temp, = ax_position0.plot(t_stamp_list[j], theta_list[j][0, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,5)), label='Dof0_traj_candidate_'+str(j+1))
-            line.append( line_temp )
-            line_temp, = ax_position0.plot(T_go_list[j], p_int_record[j][0] * 180 / math.pi, 'o', label='target_'+str(j+1))
-            line.append( line_temp )
-        # for m in range(len(val)):
-        #     line_temp, = ax_position0.plot(np.linspace(m*0.01,(m+h)*0.01,h+1), (val[m][0][h:2*h+1] * 180 / math.pi).tolist(), linewidth=2, linestyle=(0,(5,5)))
-        #     line.append( line_temp )
-        plt.legend(handles=line, loc=legend_position, shadow=True)
-            
-        ax_position1 = fig.add_subplot(312)
-        plt.xlabel(r'Time $t$ in s')
-        plt.ylabel(r'Position of Dof_1 in degree')
-        line = []
-        line_temp, = ax_position1.plot(t_stamp, y[1, :] * 180 / math.pi, linewidth=2, label=r'Pos_Dof1_out')
-        line.append( line_temp )
-        line_temp, = ax_position1.plot(t_stamp, theta_[1, :] * 180 / math.pi, linewidth=2, label=r'Pos_Dof1_des')
-        line.append( line_temp )
-        for j in range(len(theta_list)):
-            line_temp, = ax_position1.plot(t_stamp_list[j], theta_list[j][1, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,5)), label='Dof1_traj_candidate_'+str(j+1))
-            line.append( line_temp )
-            line_temp, = ax_position1.plot(T_go_list[j], p_int_record[j][1] * 180 / math.pi, 'o', label='target_'+str(j+1))
-            line.append( line_temp )
-        plt.legend(handles=line, loc=legend_position, shadow=True)
-        
-        ax_position2 = fig.add_subplot(313)
-        plt.xlabel(r'Time $t$ in s')
-        plt.ylabel(r'Position of Dof_2 in degree')
-        line = []
-        line_temp, = ax_position2.plot(t_stamp, y[2, :] * 180 / math.pi, linewidth=2, label=r'Pos_Dof2_out')
-        line.append( line_temp )
-        line_temp, = ax_position2.plot(t_stamp, theta_[2, :] * 180 / math.pi, linewidth=2, label=r'Pos_Dof2_des')
-        line.append( line_temp )
-        for j in range(len(theta_list)):
-            line_temp, = ax_position2.plot(t_stamp_list[j], theta_list[j][2, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,5)), label='Dof2_traj_candidate_'+str(j+1))
-            line.append( line_temp )
-            line_temp, = ax_position2.plot(T_go_list[j], p_int_record[j][2] * 180 / math.pi, 'o', label='target_'+str(j+1))
-            line.append( line_temp )
-        plt.legend(handles=line, loc=legend_position, shadow=True)
-
-        plt.suptitle('Joint Space Trajectory Tracking Performance'+' Iter '+str(i_iter+1))
-        plots.append(wandb.Image(plt, caption="matplotlib image"))                
-        # plt.show()
-
-        if if_both:
-            fig = plt.figure(figsize=(18, 18))
-
-            ax_position00 = fig.add_subplot(311)
-            plt.xlabel(r'Time $t$ in s')
-            plt.ylabel(r'Position of angle $\theta$ in degree')
-            line = []
-            line_temp, = ax_position00.plot(t_stamp, y_cylinder[0, :] * 180 / math.pi, linewidth=2, label=r'Pos_$\theta$_out')
-            line.append( line_temp )
-            line_temp, = ax_position00.plot(t_stamp, p[0, :] * 180 / math.pi, linewidth=2, label=r'Pos_$\theta$_des')
-            line.append( line_temp )
-            plt.legend(handles=line, loc=legend_position, shadow=True)
-                
-            ax_position11 = fig.add_subplot(312)
-            plt.xlabel(r'Time $t$ in s')
-            plt.ylabel(r'Position of radius $\eta$ in m')
-            line = []
-            line_temp, = ax_position11.plot(t_stamp, y_cylinder[1, :], linewidth=2, label=r'Pos_$\eta$_out')
-            line.append( line_temp )
-            line_temp, = ax_position11.plot(t_stamp, p[1, :], linewidth=2, label=r'Pos_$\eta$_des')
-            line.append( line_temp )
-            plt.legend(handles=line, loc=legend_position, shadow=True)
-            
-            ax_position22 = fig.add_subplot(313)
-            plt.xlabel(r'Time $t$ in s')
-            plt.ylabel(r'Position of height $\xi$ in degree')
-            line = []
-            line_temp, = ax_position22.plot(t_stamp, y_cylinder[2, :], linewidth=2, label=r'Pos_$\xi$_out')
-            line.append( line_temp )
-            line_temp, = ax_position22.plot(t_stamp, p[2, :], linewidth=2, label=r'Pos_$\xi$_des')
-            line.append( line_temp )
-            plt.legend(handles=line, loc=legend_position, shadow=True)
-
-            plt.suptitle('Cylinder Space Trajectory Tracking Performance'+' Iter '+str(i_iter+1))
-            plots.append(wandb.Image(plt, caption="matplotlib image"))                
-            # plt.show()
-
-        if if_joint:
-            fig = plt.figure(figsize=(18, 18))
-
-            ax_velocity0 = fig.add_subplot(121)
-            plt.xlabel(r'Time $t$ in s')
-            plt.ylabel(r'Vel in rad/s')
-            line = []
-            line_temp, = ax_velocity0.plot(t_stamp[1:], v_y[0, 1:], linewidth=2, label=r'Vel_Dof0_out')
-            line.append( line_temp )
-            line_temp, = ax_velocity0.plot(t_stamp[1:], v_y[1, 1:], linewidth=2, label=r'Vel_Dof1_out')
-            line.append( line_temp )
-            line_temp, = ax_velocity0.plot(t_stamp[1:], v_y[2, 1:], linewidth=2, label=r'Vel_Dof2_out')
-            line.append( line_temp )
-            plt.legend(handles=line, loc=legend_position, shadow=True)
-
-            ax_acceleration0 = fig.add_subplot(122)
-            plt.xlabel(r'Time $t$ in s')
-            plt.ylabel(r'Acc in rad/s^2')
-            line = []
-            line_temp, = ax_acceleration0.plot(t_stamp[1:], a_y[0, 1:], linewidth=2, label=r'Acc_Dof0_out')
-            line.append( line_temp )
-            line_temp, = ax_acceleration0.plot(t_stamp[1:], a_y[1, 1:], linewidth=2, label=r'Acc_Dof1_out')
-            line.append( line_temp )
-            line_temp, = ax_acceleration0.plot(t_stamp[1:], a_y[2, 1:], linewidth=2, label=r'Acc_Dof2_out')
-            line.append( line_temp )
-            plt.legend(handles=line, loc=legend_position, shadow=True)
-
-            plt.suptitle('Joint Space Real Data'+' Iter '+str(i_iter+1))                
-            plots.append(wandb.Image(plt, caption="matplotlib image"))
-            # plt.show()
-
-        if if_cylinder:
-            fig = plt.figure(figsize=(18, 18))
-
-            ax_velocity1 = fig.add_subplot(231)
-            plt.xlabel(r'Time $t$ in s')
-            plt.ylabel(r'Vel in rad/s')
-            line = []
-            line_temp, = ax_velocity1.plot(t_stamp, v[0, :], linewidth=2, label=r'Vel_$\theta$_des')
-            line.append( line_temp )
-            plt.legend(handles=line, loc=legend_position, shadow=True)
-
-            ax_acceleration1 = fig.add_subplot(232)
-            plt.xlabel(r'Time $t$ in s')
-            plt.ylabel(r'Acc in rad/s^2')
-            line = []
-            line_temp, = ax_acceleration1.plot(t_stamp, a[0, :], linewidth=2, label=r'Acc_$\theta$_des')
-            line.append( line_temp )
-            plt.legend(handles=line, loc=legend_position, shadow=True)
-
-            ax_jerk1 = fig.add_subplot(233)
-            plt.xlabel(r'Time $t$ in s')
-            plt.ylabel(r'Jerk in rad/s^3')
-            line = []
-            line_temp, = ax_jerk1.plot(t_stamp, j[0, :], linewidth=2, label=r'Jerk_$\theta$_des')
-            line.append( line_temp )
-            plt.legend(handles=line, loc=legend_position, shadow=True)
-
-            ax_velocity2 = fig.add_subplot(234)
-            plt.xlabel(r'Time $t$ in s')
-            plt.ylabel(r'Vel in m/s')
-            line = []
-            line_temp, = ax_velocity2.plot(t_stamp, v[1, :], linewidth=2, label=r'Vel_$\eta$_des')
-            line.append( line_temp )
-            line_temp, = ax_velocity2.plot(t_stamp, v[2, :], linewidth=2, label=r'Vel_$\xi$_des')
-            line.append( line_temp )
-            plt.legend(handles=line, loc=legend_position, shadow=True)
-
-            ax_acceleration2 = fig.add_subplot(235)
-            plt.xlabel(r'Time $t$ in s')
-            plt.ylabel(r'Acc in m/s^2')
-            line = []
-            line_temp, = ax_acceleration2.plot(t_stamp, a[1, :], linewidth=2, label=r'Acc_$\eta$_des')
-            line.append( line_temp )
-            line_temp, = ax_acceleration2.plot(t_stamp, a[2, :], linewidth=2, label=r'Acc_$\xi$_des')
-            line.append( line_temp )
-            plt.legend(handles=line, loc=legend_position, shadow=True)
-
-            ax_jerk2 = fig.add_subplot(236)
-            plt.xlabel(r'Time $t$ in s')
-            plt.ylabel(r'Jerk in m/s^3')
-            line = []
-            line_temp, = ax_jerk2.plot(t_stamp, j[1, :], linewidth=2, label=r'Jerk_$\eta$_des')
-            line.append( line_temp )
-            line_temp, = ax_jerk2.plot(t_stamp, j[2, :], linewidth=2, label=r'Jerk_$\xi$_des')
-            line.append( line_temp )
-            plt.legend(handles=line, loc=legend_position, shadow=True)
-
-            plt.suptitle('Cylinder Space Desired Data'+' Iter '+str(i_iter+1))
-            plots.append(wandb.Image(plt, caption="matplotlib image"))                
-            # plt.show()
-        
-        wandb.log({'related plots': plots})
-
-    print('begin {}. optimization'.format(i_iter+1))
-    W_list = [None] * num_nn
-    for i in range(num_nn):    
-        W = []
-        [W.append(param.data.view(-1)) for param in cnn_list[i].parameters()]
-        W = torch.cat(W)
-        W_list[i] = W.cpu().numpy().reshape(-1, 1)
-
-    part4 = [] # num_nn
-    for dof in range(num_nn):
-        temp = np.zeros((Pamy.y_desired.shape[1],Pamy.y_desired.shape[1]))
-        if num_nn==2:
-            for row in range(1,Pamy.y_desired.shape[1]):
-                temp[row, row-1] = Pamy.pid_for_tracking[dof+1,0]+Pamy.pid_for_tracking[dof+1,2]*100
-                if row>1:
-                    temp[row, row-2] = -Pamy.pid_for_tracking[dof+1,2]*100
-        elif num_nn==3:
-            for row in range(1,Pamy.y_desired.shape[1]):
-                temp[row, row-1] = Pamy.pid_for_tracking[dof,0]+Pamy.pid_for_tracking[dof,2]*100
-                if row>1:
-                    temp[row, row-2] = -Pamy.pid_for_tracking[dof,2]*100
-        part4.append(temp)
-    if paras.method_updating_traj=='with_delay':
-        part3 = get_grads_list(get_dataset(Pamy.y_desired), cnn_list) # num_nn
-    elif paras.method_updating_traj=='no_delay':
-        part3 = get_grads_list(get_dataset(Pamy.y_desired, option=aug_ref_traj, ref=update_point_index_list), cnn_list) # num_nn
-    part2 = [Pamy.O_list[i].Bu for i in PAMY_CONFIG.dof_list] # 4
     part1_temp = (y-theta_)
-    part1 = [part1_temp[i].reshape(1,-1) for i in range(len(part1_temp))] # 4
     loss = [np.linalg.norm(part1_temp[i].reshape(1,-1)) for i in range(len(part1_temp))]
-
-    ###
-    # to decay the learning rate
-    ###
-    # if (i_iter+1)%500==0:
-    #     learning_rate *= 0.5
-
-    for dof in range(num_nn):
-        if num_nn==2:
-            delta_temp = np.linalg.pinv(np.eye(Pamy.y_desired.shape[1])+part2[dof+1]@part4[dof])@part2[dof+1]@part3[dof]
-            if paras.method_updating_policy == 'GD':
-                delta = (paras.lr_list[dof+1]*part1[dof+1]@delta_temp).reshape(-1, 1)
-            elif paras.method_updating_policy == 'NM':
-                newton_temp[dof] = 0*delta_temp.T@delta_temp+0*paras.alpha_list[dof+1]*part3[dof].T@part3[dof]+paras.epsilon_list[dof+1]*np.eye(part3[0].shape[1])
-                delta = (paras.lr_list[dof+1]*np.linalg.pinv(newton_temp[dof])@delta_temp.T@part1[dof].T).reshape(-1 ,1)
-        elif num_nn==3:
-            delta_temp = np.linalg.pinv(np.eye(Pamy.y_desired.shape[1])+part2[dof]@part4[dof])@part2[dof]@part3[dof]
-            if paras.method_updating_policy == 'GD':
-                delta = (paras.lr_list[dof]*part1[dof]@delta_temp).reshape(-1, 1)
-            elif paras.method_updating_policy == 'NM':
-                newton_temp[dof] += delta_temp.T@delta_temp+paras.alpha_list[dof]*part3[dof].T@part3[dof]+paras.epsilon_list[dof]*np.eye(part3[0].shape[1])
-                delta = (paras.lr_list[dof]*np.linalg.pinv(newton_temp[dof]/(i_iter+1))@delta_temp.T@part1[dof].T).reshape(-1 ,1)
-        W_list[dof] = W_list[dof] - delta
-    
-    cnn_list = set_parameters(W_list, cnn_list, idx_list, shape_list)
-    print('end {}. optimization'.format(i_iter+1))
-
-    if (i_iter+1)%100==0:
-        root_model_epoch = '/home/mtian/Desktop/MPI-intern/training_log_temp_'+ str(paras.save_path_num) +'/linear_model' + '/' + str(i_iter+1)
-        mkdir(root_model_epoch) 
-        for dof in range(num_nn):
-            cnn = cnn_list[dof]
-            root_file = root_model_epoch + '/' + str(dof)
-            torch.save(cnn.state_dict(), root_file)
-
-    print(t_used)
-    print('inference time consumption: ')
-    print(t_inf/(i_iter+1))
     print('loss:')
     print(loss)
     if paras.flag_wandb:
@@ -660,10 +283,6 @@ while 1:
 
     i_iter += 1
 
-    # if flag_time_record:
-    #     t_end = time.time()
-    #     print('used time: {}'.format(t_end-t_begin))
-
-    # if flag_time_analysis:
-    #     profiler.stop()
-    #     print(profiler.output_text(unicode=True, color=True))
+    if paras.flag_time_analysis:
+        profiler.stop()
+        print(profiler.output_text(unicode=True, color=True))

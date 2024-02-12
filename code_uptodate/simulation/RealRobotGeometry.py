@@ -14,7 +14,7 @@ class RobotGeometry:
 
     def __init__(self, center_of_robot=[0, 0, 0], x_of_robot=[1, 0, 0],
                  y_of_robot=[0, 1, 0], z_of_robot=[0, 0, 1], 
-                 initial_posture=np.array([0, 0.8, 0.8, 0]), #initial_posture=np.array([0, -30, -30, 0])/180*math.pi, 
+                 initial_posture=np.array([0, 0.8, 0, 0]), #initial_posture=np.array([0, -30, -30, 0])/180*math.pi, 
                  l_1=0.40, l_2=0.38, step_size=0.01, constraint_angle=None):
         # for now the coordinates of robot must be [0, 0, 0]
         self.center_of_robot = center_of_robot

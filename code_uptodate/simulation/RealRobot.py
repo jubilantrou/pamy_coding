@@ -436,8 +436,17 @@ class Robot:
         
         self.frontend.pulse()
         # do not consider the last dof
-        count = 0
-        while not (abs((theta[0:3] - angle[0:3])*180/math.pi) < tolerance_list[0:3]).all():
+        while 1:
+        # while not (abs((theta[0:3] - angle[0:3])*180/math.pi) < tolerance_list[0:3]).all():
+            
+            if (abs((theta[0:3] - angle[0:3])*180/math.pi) < tolerance_list[0:3]).all():
+                time.sleep(0.25)
+                theta = self.frontend.latest().get_positions()
+                if (abs((theta[0:3] - angle[0:3])*180/math.pi) < tolerance_list[0:3]).all():
+                    print('current pressures')
+                    print(self.frontend.latest().get_desired_pressures())
+                    break
+
             # all following vectors must be column vectors
             angle_delta = (angle - theta).reshape(len(self.dof_list), -1)
             res_d = ( angle_delta - angle_delta_pre ) / t

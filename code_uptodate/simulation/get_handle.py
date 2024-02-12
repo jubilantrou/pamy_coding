@@ -1,8 +1,12 @@
+'''
+This function is used to construct the handle 
+for the simulator.
+'''
 import pam_mujoco
 from scipy.spatial.transform import Rotation
 
-def get_handle(mujoco_id='pamy_sim', mode='pressure', generation='second', rotation_z_robot=90, position=(0.0, 1.7, 0.755)):
-    # It is assumed that the waiting instance of pam_mujoco was started already using this same mujoco_id.
+def get_handle(mujoco_id='pamy_sim', mode='pressure', generation='second', rotation_z_robot=90, position_table=(0.0, 1.7, 0.755)):
+    # ensure a waiting instance of pam_mujoco was started already using this same mujoco_id
 
     # the o80 segment id of the robot
     robot_segment_id = "robot"
@@ -26,9 +30,10 @@ def get_handle(mujoco_id='pamy_sim', mode='pressure', generation='second', rotat
         control = control,
         position = (0.0, 0.0, 1.21),
         orientation = Rotation.from_euler('z',rotation_z_robot,degrees=True),
-        ) 
+        )
+     
     # constructing the handle
-    table = pam_mujoco.MujocoTable("table", position=position)
+    table = pam_mujoco.MujocoTable("table", position=position_table)
     hit_point = pam_mujoco.MujocoItem("hit_point", control=pam_mujoco.MujocoItem.CONSTANT_CONTROL, color=(0,0,1,1))
     handle = pam_mujoco.MujocoHandle(
         mujoco_id, robot1=robot, table=table, hit_points=(hit_point,), graphics=True, accelerated_time=False

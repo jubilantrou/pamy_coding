@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
 class CNN(nn.Module):
 
     def __init__(self, channel_in, filter_size, height, width, channel_out=1, dropout=0.0,
@@ -85,9 +84,12 @@ class CNN(nn.Module):
         #                            )
         # l = (l - filter_size + 1)
 
-        self.fc = nn.Sequential( nn.Linear( height*width*channel_in, 64, bias=True),
+        self.fc = nn.Sequential(  nn.Linear( 1*height*width*channel_in, 64, bias=True),
                                   # nn.Dropout(dropout),     
-                                  nn.ReLU(),     
+                                  nn.ReLU(),
+                                  # nn.Linear( 32, 16, bias=True),
+                                  # # nn.Dropout(dropout),     
+                                  # nn.ReLU(),     
                                   nn.Linear( 64, 1, bias=True),
                                   # nn.Dropout(dropout),     
                                   # nn.ReLU(),        
@@ -95,7 +97,7 @@ class CNN(nn.Module):
                                   # nn.Dropout(dropout),
                                   # nn.ReLU(),
                                   # nn.Linear( 32, length_label * channel_out, bias=True ), 
-                                  # nn.Tanh()
+                                  # nn.Tanh(),
                                 #  nn.Hardtanh(-0.9,0.9)
                                 )
         

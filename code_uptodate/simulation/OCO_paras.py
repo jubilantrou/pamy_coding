@@ -8,13 +8,15 @@ def get_paras():
     parser = argparse.ArgumentParser(description='set parameters for the OCO script')
 
     parser.add_argument('--obj', default='sim', type=str, choices=['sim','real'], help='train the simulator or the real robot')
+    parser.add_argument('--nn_type', default='FCN', type=str, choices=['FCN','CNN'], help='the type of neural networks used for the trainable policy blocks')
     parser.add_argument('--nr_channel', default=1, type=int, help='use only p for the training input data or use more information such as v and a')
     parser.add_argument('--h_l', default=90, type=int, help='the extended time points length in the past direction when constructing the training input data')
     parser.add_argument('--h_r', default=90, type=int, help='the extended time points length in the future direction when constructing the training input data')
     parser.add_argument('--ds', default=6, type=int, help='the stride for downsampling when constructing the training input data')
     parser.add_argument('--coupling', default='yes', type=str, choices=['yes','no'], help='whether to consider the coupling between dofs when constructing the training input data')
     parser.add_argument('--width', default=3, type=int, help='the width of input data when using CNN')
-    parser.add_argument('--filter_size', default=7, type=int, help='the kernel size for the height dimension when using CNN')   
+    parser.add_argument('--filter_size', default=7, type=int, help='the kernel size for the height dimension when using CNN')
+    parser.add_argument('--hidden_size', nargs='*', default=[32], type=int, help='the sizes for hidden layers when using FCN')   
     parser.add_argument('--method_updating_traj', default='no_delay', type=str, choices=['no_delay','with_delay'], help='whether to add a delay when updating the trajectory')
     parser.add_argument('--method_updating_policy', default='NM', type=str, choices=['GD','NM'], help='use online gradient descent or online Newton method to update the u_ff policy parameters')
     parser.add_argument('--lr_list', nargs=3, default=[1.0, 100.0, 50.0], type=float, help='learning rates')
@@ -39,7 +41,7 @@ def get_paras():
         print("Let's go training!")
         return paras
     else:
-        raise ValueError("Check parameters before training!")
+        raise ValueError("Check parameters before training! Especially pay attention to the address for results storing.")
 
 if __name__=='__main__':
     paras = get_paras()

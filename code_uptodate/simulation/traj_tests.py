@@ -9,7 +9,7 @@ import random
 from get_handle import get_handle
 import o80_pam
 import torch
-from CNN import CNN
+from Trainable_blocks import *
 import torch.nn as nn
 import time
 from RealRobotGeometry import RobotGeometry
@@ -202,6 +202,32 @@ seed = 3154
 torch.manual_seed(seed)
 np.random.seed(seed)
 random.seed(seed)
+
+### for penalty parameters testing
+# rec = 0
+
+# fig1 = plt.figure(figsize=(18, 18))
+# ax1_position0 = fig1.add_subplot(111)
+# plt.xlabel(r'Time $t$ in s')
+# plt.ylabel(r'Dof_0')
+# line = []
+
+# for i in range(200):
+#     (t, angle) = get_random()
+#     (p, v, a, j, theta, t_stamp) = RG.PathPlanning(
+#         time_point=0, T_go=t, angle=PAMY_CONFIG.GLOBAL_INITIAL, target=angle, part=0)
+    
+#     line_temp, = ax1_position0.plot(t_stamp, theta[0, :]/math.pi*180, linewidth=1)
+#     line.append( line_temp )
+
+# line_temp, = ax1_position0.plot(t_stamp, [120]*len(t_stamp), linewidth=1)
+# line.append( line_temp )
+# line_temp, = ax1_position0.plot(t_stamp, [-120]*len(t_stamp), linewidth=1)
+# line.append( line_temp )
+
+# plt.legend(handles=line, shadow=True)
+# plt.show()
+###
 
 i_iter = 0
 while 1:

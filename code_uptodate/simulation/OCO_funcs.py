@@ -11,7 +11,6 @@ import pickle5 as pickle
 import random
 import o80_pam
 import torch
-from CNN import CNN
 import torch.nn as nn
 import time
 from RealRobotGeometry import RobotGeometry
@@ -35,7 +34,7 @@ def fix_seed(seed):
 
 def get_random():
     '''
-    to randomly generate the target position and the T_go
+    to randomly generate the T_go and the target position
     '''
     theta = np.zeros(3)
     theta[0] = random.choice([random.randrange(-900, -450)/10, random.randrange(450, 900)/10])

@@ -84,13 +84,13 @@ class CNN(nn.Module):
         #                            )
         # l = (l - filter_size + 1)
 
-        self.fc = nn.Sequential(  nn.Linear( 1*height*width*channel_in, 64, bias=True),
+        self.fc = nn.Sequential(  nn.Linear( 1*height*width*channel_in, 32, bias=True),
                                   # nn.Dropout(dropout),     
                                   nn.ReLU(),
                                   # nn.Linear( 32, 16, bias=True),
                                   # # nn.Dropout(dropout),     
                                   # nn.ReLU(),     
-                                  nn.Linear( 64, 1, bias=True),
+                                  nn.Linear( 32, 1, bias=True),
                                   # nn.Dropout(dropout),     
                                   # nn.ReLU(),        
                                   # nn.Linear( 8, 4, bias=True) ,

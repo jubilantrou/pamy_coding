@@ -416,7 +416,7 @@ class RobotGeometry:
     def PathPlanning( self, time_point, T_go=1.0, T_back=1.35, T_steady=0.15,
                       angle=None, velocity_initial=np.array([0, 0, 0]), 
                       acceleration_initial=np.array([0, 0, 0]),
-                      target=None, frequency=100, plan_weight=(6, 10), part=1,):
+                      target=None, frequency=100, plan_weight=(12, 5), part=1,):
 
         l_1 = self.l_1
         l_2 = self.l_2
@@ -428,10 +428,11 @@ class RobotGeometry:
         (_, p_initial) = self.AngleToEnd(angle[0:3], frame='Cylinder')  # theta1, r, h
         (_, p_target) = self.AngleToEnd(target[0:3], frame='Cylinder')  # theta1, r, h
 
+        vel = random.randrange(20, 50)/10
         if p_target[0]<=0:
-            v_target = np.array([2.0/p_target[1], 0, 0])
+            v_target = np.array([vel/p_target[1], 0, 0])
         else:
-            v_target = np.array([-2.0/p_target[1], 0, 0])
+            v_target = np.array([-vel/p_target[1], 0, 0])
         v_final = np.array([0, 0, 0])
         a_target = np.array([0, 0, 0])
         a_final = np.array([0, 0, 0])
@@ -461,7 +462,7 @@ class RobotGeometry:
                       [1.0, 1.0, 1.0],
                       [1.0, 1.0, 1.0]]
             m_list = np.array(m_list) #relative term
-            n_list = [[plan_weight[0], plan_weight[0], 0.1],
+            n_list = [[plan_weight[0], plan_weight[1], 0.1],
                       [1.0, 1.0, 0.1],
                       [1.0, 1.0, 0.1]]
             n_list = np.array(n_list) #tune n to adjust the penalty

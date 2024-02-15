@@ -69,14 +69,15 @@ def trainable_blocks_init(paras):
     idx = 0
     idx_list.append(idx)
 
-    for dof in paras.flag_dof:
+    for index, dof in enumerate(paras.flag_dof):
         if not dof:
             cnn_list.append(None)
         else:
             cnn = CNN(channel_in=paras.nr_channel, filter_size=paras.filter_size, height=paras.height, width=paras.width)
             ### for pre-trained weights loading
-            # temp = torch.load('target_address')
-            # cnn.load_state_dict(temp)
+            temp_model = '/home/mtian/Desktop/MPI-intern/training_log_temp_8/linear_model/5200/' + str(index)
+            temp = torch.load(temp_model)
+            cnn.load_state_dict(temp)
             ### for self-defined weights initialization
             # cnn.apply(weight_init)
             cnn.to(device)
@@ -135,6 +136,33 @@ for cnn in cnn_list:
 # theta_ = np.copy(theta)
 # theta = theta - theta[:, 0].reshape(-1, 1) # rel
 # Pamy.ImportTrajectory(theta, t_stamp)
+
+### for penalty parameters testing
+# rec = 0
+
+# fig1 = plt.figure(figsize=(18, 18))
+# ax1_position0 = fig1.add_subplot(111)
+# plt.xlabel(r'Time $t$ in s')
+# plt.ylabel(r'Dof_0')
+# line = []
+
+# for i in range(200):
+#     (t, angle) = get_random()
+#     (p, v, a, j, theta, t_stamp) = RG.PathPlanning(
+#         time_point=0, T_go=t, angle=PAMY_CONFIG.GLOBAL_INITIAL, target=angle, part=0)
+    
+#     line_temp, = ax1_position0.plot(t_stamp, theta[0, :]/math.pi*180, linewidth=1)
+#     line.append( line_temp )
+
+# line_temp, = ax1_position0.plot(t_stamp, [120]*len(t_stamp), linewidth=1)
+# line.append( line_temp )
+# line_temp, = ax1_position0.plot(t_stamp, [-120]*len(t_stamp), linewidth=1)
+# line.append( line_temp )
+
+# plt.legend(handles=line, shadow=True)
+# plt.show()
+###
+
 
 log_min = []
 log_max = []

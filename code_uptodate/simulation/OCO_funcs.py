@@ -38,7 +38,7 @@ def get_random():
     to randomly generate the target position and the T_go
     '''
     theta = np.zeros(3)
-    theta[0] = random.choice([random.randrange(-700, -250)/10, random.randrange(250, 700)/10])
+    theta[0] = random.choice([random.randrange(-900, -450)/10, random.randrange(450, 900)/10])
     theta[1] = random.randrange(150, 750)/10
     theta[2] = random.randrange(150, 750)/10
     t        = random.randrange(90, 100)/100

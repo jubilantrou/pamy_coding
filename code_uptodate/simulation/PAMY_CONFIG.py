@@ -10,7 +10,7 @@ import pickle5 as pickle
 import math
 
 # %%
-obj = None
+obj = 'sim'
 
 # %%
 '''

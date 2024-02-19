@@ -72,7 +72,7 @@ class FCN(nn.Module):
 
         self.fc = nn.Sequential(  nn.Linear( channel_in*height*width, hidden_size[0], bias=True),    
                                   nn.ReLU(),    
-                                  nn.Linear( hidden_size, 1, bias=True), 
+                                  nn.Linear( hidden_size[0], 1, bias=True), 
                                   # nn.Tanh(),
                                 )
         
@@ -91,7 +91,7 @@ def weight_init(layer):
         if layer.bias is not None:
             nn.init.zeros_(layer.bias)
 
-def trainable_blocks_init(flag_dof, nn_type, nr_channel, height, width, filter_size, device, hidden_size):
+def trainable_blocks_init(flag_dof, nn_type, nr_channel, height, width, filter_size, device, hidden_size, model=None):
     '''
     to initialize the trainable blocks
     '''
@@ -111,9 +111,10 @@ def trainable_blocks_init(flag_dof, nn_type, nr_channel, height, width, filter_s
             elif nn_type=='CNN':
               block = CNN(channel_in=nr_channel, height=height, width=width, filter_size=filter_size)
             ### for pre-trained weights loading
-            # temp_model = ''
-            # temp = torch.load(temp_model)
-            # block.load_state_dict(temp)
+            if model is not None:
+                temp_model = model + str(index)
+                temp = torch.load(temp_model)
+                block.load_state_dict(temp)
             ### for self-defined weights initialization
             # block.apply(weight_init)
             block.to(device)

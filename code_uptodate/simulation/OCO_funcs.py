@@ -99,24 +99,27 @@ def get_dataset(datapoint, batch_size):
 
     return dataset
 
-def get_prediction(datapoint, cnn_list, y):
+def get_prediction(datapoint, block_list, y):
     '''
-    to get the trainable part of the contorl inputs
+    to get the trainable contorl inputs
     '''
     dataset = get_dataset(datapoint=datapoint, batch_size=y.shape[1])
     u = np.zeros(y.shape)
-    for dof,cnn in enumerate(cnn_list):
-        if cnn is None:
+    for dof,block in enumerate(block_list):
+        if block is None:
             continue
         else:
-            cnn.eval()
+            block.eval()
             try:
-                u[dof, :] = cnn(dataset[0]).cpu().detach().numpy().flatten()
+                u[dof, :] = block(dataset[0]).cpu().detach().numpy().flatten()
             except:
-                u[dof, :] = cnn(dataset[0].float()).cpu().detach().numpy().flatten()
+                u[dof, :] = block(dataset[0].float()).cpu().detach().numpy().flatten()
     return u
 
 def wandb_plot(i_iter, frequency, t_stamp, ff, fb, y, theta_, t_stamp_list, theta_list, T_go_list, p_int_record):
+    '''
+    to plot the ff input, the fb input and the tracking performance in joint space
+    '''
     plots = []
     if (i_iter+1)%frequency==0:
         legend_position = 'best'
@@ -208,40 +211,61 @@ def wandb_plot(i_iter, frequency, t_stamp, ff, fb, y, theta_, t_stamp_list, thet
         wandb.log({'related plots': plots})
         plt.close()
 
-def get_grads_list(dataset, cnn_list):
+def get_grads_list(dataset, block_list, additional=False):
     '''
     Nt x nff
     '''
     X_list = []
+    Y_list = []
 
-    for cnn in cnn_list:
-        if cnn is None:
+    for idx,block in enumerate(block_list):
+        if block is None:
             X_list.append(None)
+            Y_list.append(None)
             continue
 
-        cnn.train()
-        for param in cnn.parameters():
+        block.train()
+        for param in block.parameters():
             if param.grad is None:
                 break
             param.grad.zero_()
 
         flag = True
-        for data in dataset:
+        if len(dataset)==1:
+            chosen_dataset = dataset[0]
+        else:
+            chosen_dataset = dataset[idx]
+
+        for data in chosen_dataset:
             grad = []
+
+            if additional:
+                data.requires_grad = True
+            
             try:
-                cnn(data.float()).mean().backward()
+                block(data.float()).mean().backward()
             except:
-                cnn(data).mean().backward()                       
-            for param in cnn.parameters():
+                block(data).mean().backward()                       
+            for param in block.parameters():
                 grad.append(torch.clone(param.grad.cpu().view(-1)))
                 param.grad.zero_()
-                
+            
+            if additional:
+                gradsY = torch.clone(data.grad.cpu().view(-1))
+                data.grad.zero_()
+
+                gradsY_ = np.copy(gradsY.reshape(1, -1)) if flag else np.concatenate((gradsY_, gradsY.reshape(1, -1)), axis=0)
+
             grads = torch.cat(grad)            
             grads_ = np.copy(grads.reshape(1, -1)) if flag else np.concatenate((grads_, grads.reshape(1, -1)), axis=0)
             flag = False if flag else False
 
         X_list.append(grads_)
+        if additional:
+            Y_list.append(gradsY_)
 
+    if additional:
+        return X_list, Y_list
     return X_list
 
 def set_parameters(W_list, cnn_list, idx_list, shape_list, device):

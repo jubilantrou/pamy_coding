@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import math
-from CNN import CNN
+from Trainable_blocks import CNN
 import numba as nb
 import time
 # %% add the limits

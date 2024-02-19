@@ -12,6 +12,7 @@ import time
 from threading import Thread
 import multiprocessing as mp
 from FastLCNN import LCNN
+import torch
 
 class Robot:
     def __init__(self, frontend, dof_list, model_num, model_den,
@@ -166,7 +167,7 @@ class Robot:
 
         y_desired + angle_initial = absolute trajectory
         '''
-        self.Xi            = self.get_Xi(h_in_left=h, h_in_right=h)
+        # self.Xi            = self.get_Xi(h_in_left=h, h_in_right=h)
         self.hessian_list  = []
         self.gradient_list = []
         self.part2_list    = []
@@ -180,26 +181,26 @@ class Robot:
             O.GenerateGlobalMatrix_convex(h=h, nr_channel=nr_channel, mode_name=mode_name, Bu_mode=Bu_mode)
             self.O_list.append(O)
 
-            if learning_mode == 'u':
-                gradient = O.Bu
-                hessian  = (O.Bu).T@(O.Bu)
-                part2    = gradient.T@(O.y_des) # - O.Bdes@O.y_des_bar)
-            elif learning_mode == 'b':
-                if coupling == 'yes':
-                    gradient = O.Bu@self.Xi
-                    hessian  = (O.Bu@self.Xi).T@(O.Bu@self.Xi)
-                    part2    = gradient.T@(O.y_des) # - O.Bdes@O.y_des_bar)
-                    Xi       = self.Xi
-                elif coupling == 'no':         
-                    gradient = O.Bu@O.Xi
-                    hessian  = (O.Bu@O.Xi).T@(O.Bu@O.Xi)
-                    part2    = gradient.T@(O.y_des) # - O.Bdes@O.y_des_bar)
-                    Xi       = O.Xi
+            # if learning_mode == 'u':
+            #     gradient = O.Bu
+            #     hessian  = (O.Bu).T@(O.Bu)
+            #     part2    = gradient.T@(O.y_des) # - O.Bdes@O.y_des_bar)
+            # elif learning_mode == 'b':
+            #     if coupling == 'yes':
+            #         gradient = O.Bu@self.Xi
+            #         hessian  = (O.Bu@self.Xi).T@(O.Bu@self.Xi)
+            #         part2    = gradient.T@(O.y_des) # - O.Bdes@O.y_des_bar)
+            #         Xi       = self.Xi
+            #     elif coupling == 'no':         
+            #         gradient = O.Bu@O.Xi
+            #         hessian  = (O.Bu@O.Xi).T@(O.Bu@O.Xi)
+            #         part2    = gradient.T@(O.y_des) # - O.Bdes@O.y_des_bar)
+            #         Xi       = O.Xi
            
-            self.gradient_list.append(gradient)
-            self.part2_list.append(part2)
-            self.hessian_list.append(hessian)
-            self.Xi_list.append(Xi)
+            # self.gradient_list.append(gradient)
+            # self.part2_list.append(part2)
+            # self.hessian_list.append(hessian)
+            # self.Xi_list.append(Xi)
             
     def ImportTrajectory(self, y_desired, t_stamp):
         def get_difference(x):
@@ -242,7 +243,7 @@ class Robot:
     def Control(self, y_list=None, mode_name_list=["fb+ff", "fb+ff", "fb+ff", "fb+ff"], 
                 mode_trajectory="ref",
                 frequency_frontend=100, frequency_backend=500,
-                ifplot="yes", u_ago=None, u_ant=None, ff=None, echo="no", controller='pid'):
+                ifplot="yes", u_ago=None, u_ant=None, ff=None, echo="no", controller='pid', trainable_fb=None, device=None, dim_fb=None):
         # import the reference trajectory
         if y_list is None:
             y_list = np.copy( self.y_desired )
@@ -299,10 +300,29 @@ class Robot:
         
         self.frontend.pulse()
 
+        fb_inputs = [[0.0]*dim_fb]*3
+        fb_datasets = [[],[],[]]
+
         # how mang steps to track
         for i in range( y_list.shape[1] ):
             # all following vectors must be column vectors
             angle_delta = (y_list[:, i] + angle_initial - theta).reshape(len(self.dof_list), -1)
+
+            fb_outputs = np.array([0.0]*4)
+            for i_t in range(3):
+                fb_inputs[i_t].pop(0)
+                fb_inputs[i_t].append(angle_delta[i_t,0])
+                temp_input = torch.tensor(np.array(fb_inputs[i_t]), dtype=float).view(-1).to(device)
+                fb_datasets[i_t].append(temp_input)
+                if trainable_fb[i_t] is None:
+                    continue
+                trainable_fb[i_t].eval()
+                try:
+                    fb_outputs[i_t] = trainable_fb[i_t](temp_input).cpu().detach().numpy().flatten()
+                except:
+                    fb_outputs[i_t] = trainable_fb[i_t](temp_input.float()).cpu().detach().numpy().flatten()
+            fb_outputs = fb_outputs.reshape(len(self.dof_list), -1)
+
             res_d = ( angle_delta - angle_delta_pre ) / t
             res_i += angle_delta * t
 
@@ -313,9 +333,11 @@ class Robot:
             angle_delta_pre = np.copy( angle_delta )
 
             if i == 0:
-                fb = np.copy( feedback )
+                # fb = np.copy( feedback )
+                fb = np.copy( fb_outputs )
             else:
-                fb = np.hstack((fb, feedback))
+                # fb = np.hstack((fb, feedback))
+                fb = np.hstack((fb, fb_outputs))
 
             pressure_ago = np.array([], dtype=int)
             pressure_ant = np.array([], dtype=int)
@@ -401,7 +423,7 @@ class Robot:
             # print('final positions:')
             # print(position[:,-1]/math.pi*180)
 
-            return (position, fb, pressure_ago, pressure_ant)
+            return (position, fb, pressure_ago, pressure_ant, fb_datasets)
          
     def PressureInitialization(self, times=1, duration=1):
         for _ in range(times):
@@ -436,16 +458,16 @@ class Robot:
         
         self.frontend.pulse()
         # do not consider the last dof
-        while 1:
-        # while not (abs((theta[0:3] - angle[0:3])*180/math.pi) < tolerance_list[0:3]).all():
+        # while 1:
+        while not (abs((theta[0:3] - angle[0:3])*180/math.pi) < tolerance_list[0:3]).all():
             
-            if (abs((theta[0:3] - angle[0:3])*180/math.pi) < tolerance_list[0:3]).all():
-                time.sleep(0.25)
-                theta = self.frontend.latest().get_positions()
-                if (abs((theta[0:3] - angle[0:3])*180/math.pi) < tolerance_list[0:3]).all():
-                    print('current pressures')
-                    print(self.frontend.latest().get_desired_pressures())
-                    break
+            # if (abs((theta[0:3] - angle[0:3])*180/math.pi) < tolerance_list[0:3]).all():
+            #     time.sleep(0.25)
+            #     theta = self.frontend.latest().get_positions()
+            #     if (abs((theta[0:3] - angle[0:3])*180/math.pi) < tolerance_list[0:3]).all():
+            #         print('current pressures')
+            #         print(self.frontend.latest().get_desired_pressures())
+            #         break
 
             # all following vectors must be column vectors
             angle_delta = (angle - theta).reshape(len(self.dof_list), -1)
@@ -695,7 +717,7 @@ class Robot:
         xx_[len(xx)-delay:] = xx[-1]
         return xx_
 
-    def online_convex_optimization(self, b_list, mode_name='ff', coupling='no', learning_mode='b'):
+    def online_convex_optimization(self, b_list, mode_name='ff', coupling='no', learning_mode='b', trainable_fb=None, device=None, dim_fb=None):
         mode_name_list = [mode_name, mode_name, mode_name, mode_name]
         ff    = np.zeros(self.y_desired.shape) 
         y_des = np.zeros(self.y_desired.shape)
@@ -713,8 +735,8 @@ class Robot:
                     ff_ = (self.O_lsit[i].Xi@b_list[i]).flatten()
                     # ff_ = self.get_delay(i, ff_)
                     ff[i, :] = ff_
-        (y, fb, obs_ago, obs_ant) = self.Control(self.y_desired, mode_name_list=mode_name_list, ifplot="no", u_ago=u_ago, u_ant=u_ant, 
-                                                    ff=ff, echo="yes", controller='pd')
+        (y, fb, obs_ago, obs_ant, fb_datasets) = self.Control(self.y_desired, mode_name_list=mode_name_list, ifplot="no", u_ago=u_ago, u_ant=u_ant, 
+                                                    ff=ff, echo="yes", controller='pd', trainable_fb=trainable_fb, device=device, dim_fb=dim_fb)
         u_ff = np.copy(ff)
             
         # elif mode_name == 'ff+fb' or mode_name == 'fb+ff':
@@ -726,4 +748,4 @@ class Robot:
         
         #     u_ff = np.copy(y_des)
 
-        return (y, u_ff, fb, obs_ago, obs_ant)
+        return (y, u_ff, fb, obs_ago, obs_ant, fb_datasets)

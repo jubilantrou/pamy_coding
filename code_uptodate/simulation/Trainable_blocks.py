@@ -13,7 +13,7 @@ class CNN(nn.Module):
     def __init__(self, channel_in, height, width, filter_size):     
         super(CNN, self).__init__()
 
-        l = height #
+        l = height # 201
 
         self.conv1 = nn.Sequential(  nn.Conv2d( in_channels=channel_in,
                                                 out_channels=3*channel_in,
@@ -23,7 +23,7 @@ class CNN(nn.Module):
                                                 bias=True),
                                      nn.ReLU()
                                   )
-        l = (l - filter_size + 1) #
+        l = (l - filter_size + 1) # 171
 
         self.conv2 = nn.Sequential(  nn.Conv2d( in_channels=3*channel_in,
                                                 out_channels=3*channel_in,
@@ -34,7 +34,7 @@ class CNN(nn.Module):
                                      nn.ReLU()
 
                                    )
-        l = (l - filter_size + 1) #
+        l = (l - filter_size + 1) # 141
 
         self.conv3 = nn.Sequential(  nn.Conv2d( in_channels=3*channel_in,
                                                 out_channels=channel_in,
@@ -45,7 +45,7 @@ class CNN(nn.Module):
                                      nn.ReLU()
 
                                    )
-        l = (l - filter_size + 1) #
+        l = (l - filter_size + 1) # 111
 
         self.fc = nn.Sequential(  nn.Linear( channel_in*l*1, 32, bias=True),    
                                   nn.ReLU(),    

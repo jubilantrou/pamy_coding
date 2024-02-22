@@ -93,14 +93,18 @@ class Robot:
         #                                   [-30000, 0, -300],
         #                                   [-5000, -8000, -100],
         #                                   [3.422187330173758e+04, 1.673663594798479e+05 / 10, 73.238165769446297]])
-        self.pid_for_tracking = 0.6*np.array([[-10000,  0, -260],
-                                          [-10500,  0, -525],
-                                          [-18000,  0, -875],
-                                          [-12000, 0, -1000]]) # tuned PD
-        # self.pid_for_tracking = np.array([[0,  0, 0],
-        #                                   [0,  0, 0],
-        #                                   [0,  0, 0],
-        #                                   [0,  0, 0]]) # w/o PD
+        # self.pid_for_tracking = 0.6*np.array([[-10000,  0, -260],
+        #                                       [-10500,  0, -525],
+        #                                       [-18000,  0, -875],
+        #                                       [-12000, 0, -1000]]) # tuned PD for the simulator
+        self.pid_for_tracking = np.array([[0,  0, 0],
+                                          [0,  0, 0],
+                                          [0,  0, 0],
+                                          [0,  0, 0]]) # w/o PD
+        # self.pid_for_tracking = 0.6*np.array([[-4132,  0, -259.96],
+        #                                       [-7520,  0, -709.7],
+        #                                       [-11320,  0, -627.27],
+        #                                       [-16560,  0, -227.65]]) # PD for the real robot
         # NN
         self.A_list = A_list 
         self.A_bias = A_bias
@@ -290,7 +294,7 @@ class Robot:
         # read the current iteration
         iteration_reference = self.frontend.latest().get_iteration()  
         # set the beginning iteration number
-        iteration_begin = iteration_reference + 100
+        iteration_begin = iteration_reference + 500
 
         iteration = iteration_begin
 
@@ -367,8 +371,6 @@ class Robot:
             # do not control the last dof
             pressure_ago[3] = self.anchor_ago_list[3]
             pressure_ant[3] = self.anchor_ant_list[3]
-            pressure_ago[0] = self.anchor_ago_list[0]
-            pressure_ant[0] = self.anchor_ant_list[0]
 
             self.frontend.add_command(pressure_ago, pressure_ant,
                                       o80.Iteration(iteration),
@@ -380,9 +382,9 @@ class Robot:
                                       o80.Iteration(iteration + iterations_per_command - 1),
                                       o80.Mode.QUEUE)
 
-            observation = self.frontend.pulse_and_wait()
+            self.frontend.pulse_and_wait()
             # update the angles
-            theta = observation.get_positions()
+            theta = self.frontend.latest().get_positions()
             theta = np.array( theta )
             # update the angular velocities
             # theta_dot = observation.get_velocities()
@@ -400,14 +402,19 @@ class Robot:
             iteration = iteration_begin
             pressure_ago = np.array([])
             pressure_ant = np.array([])
+            des_pressure_ago = np.array([])
+            des_pressure_ant = np.array([])
 
             while iteration < iteration_end:
                 observation = self.frontend.read(iteration)
                 obs_position = np.array( observation.get_positions() )
                 obs_pressure = np.array(observation.get_observed_pressures())
+                des_pressure = np.array(observation.get_desired_pressures())
 
                 pressure_ago = np.append(pressure_ago, obs_pressure[:, 0])
                 pressure_ant = np.append(pressure_ant, obs_pressure[:, 1])
+                des_pressure_ago = np.append(des_pressure_ago, des_pressure[:, 0])
+                des_pressure_ant = np.append(des_pressure_ant, des_pressure[:, 1])
 
                 position = np.append(position, obs_position)
                 iteration += iterations_per_command
@@ -415,6 +422,8 @@ class Robot:
             position = position.reshape(-1, len(self.dof_list)).T
             pressure_ago = pressure_ago.reshape(-1, len(self.dof_list)).T
             pressure_ant = pressure_ant.reshape(-1, len(self.dof_list)).T
+            des_pressure_ago = des_pressure_ago.reshape(-1, len(self.dof_list)).T
+            des_pressure_ant = des_pressure_ant.reshape(-1, len(self.dof_list)).T
 
             # observation_prev = self.frontend.read(iteration_begin-iterations_per_command)
             # obs_position_prev = np.array( observation_prev.get_positions() )
@@ -423,7 +432,7 @@ class Robot:
             # print('final positions:')
             # print(position[:,-1]/math.pi*180)
 
-            return (position, fb, pressure_ago, pressure_ant, fb_datasets)
+            return (position, fb, pressure_ago, pressure_ant, des_pressure_ago, des_pressure_ant, fb_datasets)
          
     def PressureInitialization(self, times=1, duration=1):
         for _ in range(times):
@@ -433,7 +442,7 @@ class Robot:
                                       o80.Mode.QUEUE)
             # sending the command to the robot, and waiting for its completion.
             self.frontend.pulse_and_wait()
-            time.sleep(1)
+            # time.sleep(1)
         # for dof in self.dof_list:
         #     print("the {}. ago/ant pressure is: {:.2f}/{:.2f}".format(dof, pressures[dof, 0], pressures[dof, 1]) )
 
@@ -450,7 +459,7 @@ class Robot:
         t = 1 / frequency_frontend
         iterations_per_command = int( period_frontend / period_backend )
 
-        iteration = self.frontend.latest().get_iteration() + 100  # set the iteration when beginning
+        iteration = self.frontend.latest().get_iteration() + 500  # set the iteration when beginning
         
         self.frontend.add_command(self.anchor_ago_list, self.anchor_ant_list,
                                   o80.Iteration(iteration-iterations_per_command),
@@ -462,7 +471,7 @@ class Robot:
         while not (abs((theta[0:3] - angle[0:3])*180/math.pi) < tolerance_list[0:3]).all():
             
             # if (abs((theta[0:3] - angle[0:3])*180/math.pi) < tolerance_list[0:3]).all():
-            #     time.sleep(0.25)
+            #     time.sleep(0.1)
             #     theta = self.frontend.latest().get_positions()
             #     if (abs((theta[0:3] - angle[0:3])*180/math.pi) < tolerance_list[0:3]).all():
             #         print('current pressures')
@@ -735,7 +744,7 @@ class Robot:
                     ff_ = (self.O_lsit[i].Xi@b_list[i]).flatten()
                     # ff_ = self.get_delay(i, ff_)
                     ff[i, :] = ff_
-        (y, fb, obs_ago, obs_ant, fb_datasets) = self.Control(self.y_desired, mode_name_list=mode_name_list, ifplot="no", u_ago=u_ago, u_ant=u_ant, 
+        (y, fb, obs_ago, obs_ant, des_ago, des_ant, fb_datasets) = self.Control(self.y_desired, mode_name_list=mode_name_list, ifplot="no", u_ago=u_ago, u_ant=u_ant, 
                                                     ff=ff, echo="yes", controller='pd', trainable_fb=trainable_fb, device=device, dim_fb=dim_fb)
         u_ff = np.copy(ff)
             
@@ -748,4 +757,4 @@ class Robot:
         
         #     u_ff = np.copy(y_des)
 
-        return (y, u_ff, fb, obs_ago, obs_ant, fb_datasets)
+        return (y, u_ff, fb, obs_ago, obs_ant, des_ago, des_ant, fb_datasets)

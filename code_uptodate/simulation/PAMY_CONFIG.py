@@ -10,7 +10,7 @@ import pickle5 as pickle
 import math
 
 # %%
-obj = 'sim'
+obj = 'real'
 
 # %%
 '''
@@ -258,8 +258,8 @@ if obj=='sim':
 
 elif obj=='real':
     ### for the real robot, the anchor pressures need to be changed time to time due to multiple influence factors
-    anchor_ago_list = np.array([20000, 19000, 17000, 17000])
-    anchor_ant_list = np.array([20000, 20000, 17000, 17000])
+    anchor_ago_list = np.array([19900, 19600, 17800, 17000])
+    anchor_ant_list = np.array([20100, 22000, 22000, 17000])
 
     ago_min_list = np.array([15000, 15000, 13000, 13000])
     ago_max_list = np.array([25000, 21500, 21000, 21800])
@@ -288,8 +288,8 @@ if obj=='sim':
                          [-13800*0.85, -50468*0.5, -943]]) # tuned PID for the simulator
 elif obj=='real':
     pid_list = np.array([[-3615.5, -18077.5, -271.16],
-                         [-5670,  -15019.84, -535.11],
-                         [-4669.5,  -21066.99, -689.99],
+                         [-5250,  -14940.40*0.8, -532.28],
+                         [-2830,  -12767.88*0.7, -414.00],
                          [-4140, -44000, -150.25]]) # tuned PID for real robot
 pid_list = FulfillZeros( pid_list )
 

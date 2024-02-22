@@ -14,9 +14,9 @@ from RealRobotGeometry import RobotGeometry
 import scipy
 
 # %% set parameters
-obj = 'sim' # for the simulator or the real robot
+obj = 'real' # for the simulator or the real robot
 choice = 2 # for which Dof to do the experiment
-amp = 25/180*math.pi # the increased amplitude of the input step signal based on the initial position
+amp = 5/180*math.pi # the increased amplitude of the input step signal based on the initial position
 t_start = 0.5 # the starting time of the step signal
 t_duration = 5.0 # the whole time length for recording and plotting
 mode1 = 'no overshoot' # the name of control type for Ziegler-Nichols method
@@ -32,6 +32,7 @@ elif obj=='real':
 else:
     raise ValueError('The variable obj needs to be assigned either as sim or as real!')
 
+print(PAMY_CONFIG.obj)
 Pamy = PAMY_CONFIG.build_pamy(frontend=frontend)
 RG = RobotGeometry()
 
@@ -86,10 +87,13 @@ def para_compute(Ku, Tu, mode):
 
 # %% run the main
 if __name__ == '__main__':
-    init = 0
+    init = 1
 
     if init:
+        # Pamy.AngleInitialization(PAMY_CONFIG.GLOBAL_INITIAL)
         Pamy.PressureInitialization(duration=4)
+        # print(frontend.latest().get_positions())
+        print(frontend.latest().get_observed_pressures())
     
     else:
         (t, step, position) = Pamy.PIDTesting(choice = choice, amp = amp, t_start = t_start, t_duration = t_duration)

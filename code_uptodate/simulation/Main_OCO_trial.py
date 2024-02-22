@@ -49,7 +49,7 @@ print('-'*30)
 print('feedforward blocks')
 print('-'*30)
 block_list, shape_list, idx_list, W_list = trainable_blocks_init(flag_dof=paras.flag_dof, nn_type=paras.nn_type, nr_channel=paras.nr_channel, 
-                                                       height=paras.height, width=paras.width, filter_size=paras.filter_size, device=device, hidden_size=paras.hidden_size, model='/home/mtian/Desktop/MPI-intern/training_log_temp_11/linear_model/600/')
+                                                       height=paras.height, width=paras.width, filter_size=paras.filter_size, device=device, hidden_size=paras.hidden_size, model='/home/mtian/Desktop/MPI-intern/training_log_temp_11/linear_model/4000/')
 print('-'*30)
 print('feedback blocks')
 print('-'*30)
@@ -102,13 +102,18 @@ while True:
     Pamy.GetOptimizer_convex(angle_initial=PAMY_CONFIG.GLOBAL_INITIAL, nr_channel=paras.nr_channel, coupling=paras.coupling)   
 
     ### get the feedforward inputs
-    datapoint = get_datapoint(y=Pamy.y_desired, h_l=paras.h_l, h_r=paras.h_r, ds=paras.ds, device=device, sub_traj=aug_ref_traj, ref=update_point_index_list)
+    datapoint = get_datapoint(y=Pamy.y_desired, h_l=paras.h_l, h_r=paras.h_r, ds=paras.ds, device=device, sub_traj=aug_ref_traj, ref=update_point_index_list, paras=paras)
     u = get_prediction(datapoint=datapoint, block_list=block_list, y=Pamy.y_desired)
 
     ### get the real output
     Pamy.AngleInitialization(PAMY_CONFIG.GLOBAL_INITIAL)
+
+    reset_pressures = np.array(Pamy.frontend.latest().get_observed_pressures())
+    Pamy.anchor_ago_list = reset_pressures[:, 0]
+    Pamy.anchor_ant_list = reset_pressures[:, 1]
+
     angle_initial_read = np.array(frontend.latest().get_positions())
-    (y, ff, fb, obs_ago, obs_ant, fb_datasets) = Pamy.online_convex_optimization(b_list=u, mode_name='ff+fb', coupling=paras.coupling, learning_mode='u', trainable_fb=fb_block_list, device=device, dim_fb=fb_input)
+    (y, ff, fb, obs_ago, obs_ant, des_ago, des_ant, fb_datasets) = Pamy.online_convex_optimization(b_list=u, mode_name='ff+fb', coupling=paras.coupling, learning_mode='u', trainable_fb=fb_block_list, device=device, dim_fb=fb_input)
     y_out = y - y[:, 0].reshape(-1, 1) # relative values of the real output
 
     print('ranges of feedforward inputs:')
@@ -121,7 +126,8 @@ while True:
     print('dof 2: {} ~ {}'.format(min(fb[2,:]),max(fb[2,:])))
 
     if paras.flag_wandb:
-        wandb_plot(i_iter=i_iter, frequency=10, t_stamp=t_stamp, ff=ff, fb=fb, y=y, theta_=theta_, t_stamp_list=t_stamp_list, theta_list=theta_list, T_go_list=T_go_list, p_int_record=p_int_record)
+        wandb_plot(i_iter=i_iter, frequency=10, t_stamp=t_stamp, ff=ff, fb=fb, y=y, theta_=theta_, t_stamp_list=t_stamp_list, theta_list=theta_list, T_go_list=T_go_list, p_int_record=p_int_record, 
+                   obs_ago=obs_ago, obs_ant=obs_ant, des_ago=des_ago, des_ant=des_ant)
 
     ### compute gradients that will be used to update parameters 
     # def get_par_paifb_par_y(flag_dof, dim, pid):
@@ -160,6 +166,25 @@ while True:
     # Nt*Nt          
     par_paifb_par_y = get_par_paifb_par_y(flag_dof=paras.flag_dof, dim=Pamy.y_desired.shape[1], par_paifb_par_fbin=par_paifb_par_fbin, dim_fb=fb_input)
 
+    ### fixed PD update
+    # def get_par_paifb_par_y(flag_dof, dim, pid):
+    #     par_paifb_par_y = []
+    #     for dof,flag in enumerate(flag_dof):
+    #         if not flag:
+    #             par_paifb_par_y.append(None)
+    #         else:
+    #             temp = np.zeros((dim,dim))
+    #             for row in range(1,dim):
+    #                 temp[row, row-1] = pid[dof,0]+pid[dof,2]*100
+    #                 if row>1:
+    #                     temp[row, row-2] = -pid[dof,2]*100
+    #             par_paifb_par_y.append(temp)
+    #     return par_paifb_par_y
+    # '''
+    # Nt x Nt
+    # '''            
+    # par_paifb_par_y = get_par_paifb_par_y(flag_dof=paras.flag_dof, dim=Pamy.y_desired.shape[1], pid=Pamy.pid_for_tracking)
+
     # Nt*Nt
     par_G_par_u = [Pamy.O_list[i].Bu for i in PAMY_CONFIG.dof_list][:3]
     # 1*Nt
@@ -182,9 +207,6 @@ while True:
             par_y_par_wfb.append(temp)
 
     def get_new_parameters(W_list, method, lr, par_l_par_y, par_y_par_w, par_pai_par_w):
-        print(par_l_par_y[1].shape)
-        print(par_y_par_w[1].shape)
-        print(par_pai_par_w[1].shape)
         for dof in range(len(par_l_par_y)):
             if par_y_par_w[dof] is None:
                 W_list[dof] = None
@@ -199,7 +221,7 @@ while True:
       
     W_list, delta = get_new_parameters(W_list=W_list, method=paras.method_updating_policy, lr=paras.lr_list, par_l_par_y=par_l_par_y, par_y_par_w=par_y_par_wff, par_pai_par_w=par_paiff_par_wff)   
     block_list = set_parameters(W_list, block_list, idx_list, shape_list, device)
-    fb_W_list, fb_delta = get_new_parameters(W_list=fb_W_list, method=paras.method_updating_policy, lr=[1.0, 2.0, 1.0], par_l_par_y=par_l_par_y, par_y_par_w=par_y_par_wfb, par_pai_par_w=par_paifb_par_wfb) # 1,1,0.5   
+    fb_W_list, fb_delta = get_new_parameters(W_list=fb_W_list, method=paras.method_updating_policy, lr=[5.0, 5.0, 5.0], par_l_par_y=par_l_par_y, par_y_par_w=par_y_par_wfb, par_pai_par_w=par_paifb_par_wfb) # 1,1,0.5   
     fb_block_list = set_parameters(fb_W_list, fb_block_list, fb_idx_list, fb_shape_list, device)
 
     if (i_iter+1)%100==0:

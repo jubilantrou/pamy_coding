@@ -56,7 +56,7 @@ def get_compensated_data(data, h_l, h_r, option=None):
         aug_data = np.hstack((I_left, data, I_right))
     return aug_data  
 
-def get_datapoint(y, h_l, h_r, ds, device, sub_traj=None, ref=None):
+def get_datapoint(y, h_l, h_r, ds, device, sub_traj=None, ref=None, paras=None):
     '''
     to get the datapoint from the reference trajectory
     '''
@@ -78,8 +78,12 @@ def get_datapoint(y, h_l, h_r, ds, device, sub_traj=None, ref=None):
                 y_temp = np.concatenate((sub_traj[choice][0, k:k+(h_l+h_r)+1:ds].reshape(1,-1), sub_traj[choice][1, k:k+(h_l+h_r)+1:ds].reshape(1,-1), sub_traj[choice][2, k:k+(h_l+h_r)+1:ds].reshape(1,-1)), axis=0)
             else:
                 y_temp = np.concatenate((aug_y[0, k:k+(h_l+h_r)+1:ds].reshape(1,-1), aug_y[1, k:k+(h_l+h_r)+1:ds].reshape(1,-1), aug_y[2, k:k+(h_l+h_r)+1:ds].reshape(1,-1)), axis=0)            
-        # data: (channel x height x width)
-        datapoint.append(torch.tensor(y_temp, dtype=float).view(-1).to(device))
+        if paras.nn_type=='FCN':
+            # data: (channel x height x width)
+            datapoint.append(torch.tensor(y_temp, dtype=float).view(-1).to(device))
+        elif paras.nn_type=='CNN':
+            # data: channel x height x width
+            datapoint.append(torch.tensor(y_temp, dtype=float).view(paras.nr_channel, paras.height, paras.width).to(device))
     
     return datapoint
 
@@ -116,7 +120,7 @@ def get_prediction(datapoint, block_list, y):
                 u[dof, :] = block(dataset[0].float()).cpu().detach().numpy().flatten()
     return u
 
-def wandb_plot(i_iter, frequency, t_stamp, ff, fb, y, theta_, t_stamp_list, theta_list, T_go_list, p_int_record):
+def wandb_plot(i_iter, frequency, t_stamp, ff, fb, y, theta_, t_stamp_list, theta_list, T_go_list, p_int_record, obs_ago, obs_ant, des_ago, des_ant):
     '''
     to plot the ff input, the fb input and the tracking performance in joint space
     '''
@@ -206,6 +210,54 @@ def wandb_plot(i_iter, frequency, t_stamp, ff, fb, y, theta_, t_stamp_list, thet
         plt.legend(handles=line, loc=legend_position, shadow=True)
 
         plt.suptitle('Joint Space Trajectory Tracking Performance'+' Iter '+str(i_iter+1))
+        plots.append(wandb.Image(plt, caption="matplotlib image"))
+
+        ### added pressure fig
+        fig2 = plt.figure(figsize=(18, 18))
+
+        p_position0 = fig2.add_subplot(311)
+        plt.xlabel(r'Time $t$ in s')
+        plt.ylabel(r'Pressures of Dof_0')
+        line = []
+        line_temp, = p_position0.plot(t_stamp, obs_ago[0,:], linewidth=2, label=r'obs_ago')
+        line.append( line_temp )
+        line_temp, = p_position0.plot(t_stamp, obs_ant[0,:], linewidth=2, label=r'obs_ant')
+        line.append( line_temp )
+        line_temp, = p_position0.plot(t_stamp, des_ago[0,:], linewidth=2, label=r'des_ago')
+        line.append( line_temp )
+        line_temp, = p_position0.plot(t_stamp, des_ant[0,:], linewidth=2, label=r'des_ant')
+        line.append( line_temp )
+        plt.legend(handles=line, loc=legend_position, shadow=True)
+            
+        p_position1 = fig2.add_subplot(312)
+        plt.xlabel(r'Time $t$ in s')
+        plt.ylabel(r'Pressures of Dof_1')
+        line = []
+        line_temp, = p_position1.plot(t_stamp, obs_ago[1,:], linewidth=2, label=r'obs_ago')
+        line.append( line_temp )
+        line_temp, = p_position1.plot(t_stamp, obs_ant[1,:], linewidth=2, label=r'obs_ant')
+        line.append( line_temp )
+        line_temp, = p_position1.plot(t_stamp, des_ago[1,:], linewidth=2, label=r'des_ago')
+        line.append( line_temp )
+        line_temp, = p_position1.plot(t_stamp, des_ant[1,:], linewidth=2, label=r'des_ant')
+        line.append( line_temp )
+        plt.legend(handles=line, loc=legend_position, shadow=True)
+        
+        p_position2 = fig2.add_subplot(313)
+        plt.xlabel(r'Time $t$ in s')
+        plt.ylabel(r'Pressures of Dof_2')
+        line = []
+        line_temp, = p_position2.plot(t_stamp, obs_ago[2,:], linewidth=2, label=r'obs_ago')
+        line.append( line_temp )
+        line_temp, = p_position2.plot(t_stamp, obs_ant[2,:], linewidth=2, label=r'obs_ant')
+        line.append( line_temp )
+        line_temp, = p_position2.plot(t_stamp, des_ago[2,:], linewidth=2, label=r'des_ago')
+        line.append( line_temp )
+        line_temp, = p_position2.plot(t_stamp, des_ant[2,:], linewidth=2, label=r'des_ant')
+        line.append( line_temp )
+        plt.legend(handles=line, loc=legend_position, shadow=True)
+
+        plt.suptitle('Pressures Monitoring'+' Iter '+str(i_iter+1))
         plots.append(wandb.Image(plt, caption="matplotlib image"))                
         
         wandb.log({'related plots': plots})

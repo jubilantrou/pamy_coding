@@ -12,6 +12,7 @@ from get_handle import get_handle
 import o80_pam
 from RealRobotGeometry import RobotGeometry
 import scipy
+import numpy as np
 
 # %% set parameters
 obj = 'real' # for the simulator or the real robot
@@ -92,8 +93,9 @@ if __name__ == '__main__':
     if init:
         # Pamy.AngleInitialization(PAMY_CONFIG.GLOBAL_INITIAL)
         Pamy.PressureInitialization(duration=4)
-        # print(frontend.latest().get_positions())
+        print(np.array(frontend.latest().get_positions())/math.pi*180)
         print(frontend.latest().get_observed_pressures())
+        print(PAMY_CONFIG.pressure_limit)
     
     else:
         (t, step, position) = Pamy.PIDTesting(choice = choice, amp = amp, t_start = t_start, t_duration = t_duration)

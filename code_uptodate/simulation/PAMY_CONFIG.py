@@ -258,13 +258,13 @@ if obj=='sim':
 
 elif obj=='real':
     ### for the real robot, the anchor pressures need to be changed time to time due to multiple influence factors
-    anchor_ago_list = np.array([19900, 19600, 17800, 17000])
-    anchor_ant_list = np.array([20100, 22000, 22000, 17000])
+    anchor_ago_list = np.array([20000, 19000, 17500, 17000])
+    anchor_ant_list = np.array([20500, 22000, 22000, 17000])
 
     ago_min_list = np.array([15000, 15000, 13000, 13000])
     ago_max_list = np.array([25000, 21500, 21000, 21800])
     ant_min_list = np.array([16000, 16000, 13000, 13000])
-    ant_max_list = np.array([25000, 25000, 21000, 19000])
+    ant_max_list = np.array([25000, 25000, 25000, 19000])
 
 ago_pressure_max = ago_max_list - anchor_ago_list
 ago_pressure_min = ago_min_list - anchor_ago_list

@@ -6,10 +6,11 @@ import o80
 import os
 from get_handle import get_handle
 import o80_pam
+import PAMY_CONFIG
 # %% constant
-anchor_ago_list        = [19300,17500,17100,16000] #np.array([17500, 18500, 16000, 15000])
-anchor_ant_list        = [19900,22000,16900,17400] #np.array([17500, 18500, 16000, 15000])
-dof                    = 1 # which dof to excite
+anchor_ago_list        = PAMY_CONFIG.anchor_ago_list
+anchor_ant_list        = PAMY_CONFIG.anchor_ant_list
+dof                    = 3 # which dof to excite
 fs                     = 100
 frequency              = 500.0  # frequency of the backend 
 period                 = 1.0/frequency  # period of backend
@@ -17,12 +18,13 @@ duration_per_command   = 1 / fs  # period of frontend
 iterations_per_command = int(duration_per_command/period)  # sychronize the frontend and the backend
 anchor_ago             = anchor_ago_list[dof]
 anchor_ant             = anchor_ant_list[dof]
-amp_list               = [2.5] #[3.5,2.5,3.5,2.5]  # amp_u * 1000
+amp_list               = [PAMY_CONFIG.pressure_limit[dof]/1000]
+print('dof {}: ago is {}, ant is {}, and amp is {}'.format(dof, anchor_ago, anchor_ant, amp_list))
 # %% connect to the simulation and initilize the posture
-handle           = get_handle(mujoco_id='SI',mode='pressure',generation='second')
-frontend         = handle.frontends["robot"]
-# segment_id = "real_robot"
-# frontend = o80_pam.frontend(segment_id)
+# handle           = get_handle(mujoco_id='SI',mode='pressure',generation='second')
+# frontend         = handle.frontends["robot"]
+segment_id = "real_robot"
+frontend = o80_pam.FrontEnd(segment_id)
 duration         = o80.Duration_us.seconds(2)
 frontend.add_command(anchor_ago_list, anchor_ant_list,
                      duration,
@@ -30,8 +32,8 @@ frontend.add_command(anchor_ago_list, anchor_ant_list,
 frontend.pulse_and_wait()
 # %%
 p         = 10  # how many periods
-file_path = '/home/mtian/Pamy_OCO/excitation signals/'
-f_input   = file_path + 'excitation_10hz_0.csv'
+file_path = '/home/mtian/Pamy_OCO/'
+f_input   = file_path + 'excitation signals/excitation_5Hz.csv'
 u         = np.loadtxt(f_input, delimiter=',')
 [m, N]    = u.shape
 u         = np.tile(u, p).flatten()
@@ -47,7 +49,7 @@ for amp in amp_list:
     frontend.pulse_and_wait()
 
     u_temp = u * amp  #change the amplitude of the signal
-    f_output = file_path + "response_pamy2_dof_" + str(dof) + '_amp_' + str(amp) + ".txt"
+    f_output = file_path + "5Hz_response_pamy2_real_dof_" + str(dof) + '_amp_' + str(amp) + ".txt"
     # initilization
     position = np.array([])
     velocity = np.array([])

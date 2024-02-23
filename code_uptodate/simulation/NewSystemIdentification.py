@@ -13,10 +13,14 @@ from get_handle import get_handle
 import o80_pam
 
 def SystemIdentification(robot, initial_angle, file_name):
-        robot.AngleInitialization(angle=initial_angle)
-        reset_pressures = np.array(robot.frontend.latest().get_observed_pressures())
-        robot.anchor_ago_list = reset_pressures[:, 0]
-        robot.anchor_ant_list = reset_pressures[:, 1]
+        robot.PressureInitialization(duration=4)
+        print(frontend.latest().get_observed_pressures())
+        # robot.AngleInitialization(angle=initial_angle)
+        # reset_pressures = np.array(robot.frontend.latest().get_observed_pressures())
+        # robot.anchor_ago_list = reset_pressures[:, 0]
+        # robot.anchor_ant_list = reset_pressures[:, 1]
+        # robot.anchor_ago_list[2] = 17000
+        # robot.anchor_ant_list[2] = 21000
 
         ago_pressure_max = PAMY_CONFIG.ago_max_list - robot.anchor_ago_list
         ago_pressure_min = PAMY_CONFIG.ago_min_list - robot.anchor_ago_list
@@ -49,16 +53,13 @@ def SystemIdentification(robot, initial_angle, file_name):
             pressure_ago = np.array([], dtype=int)
             pressure_ant = np.array([], dtype=int)
 
-            pressure_ago = np.append(pressure_ago, int( robot.anchor_ago_list[0] ))
-            pressure_ant = np.append(pressure_ant, int( robot.anchor_ant_list[0] ))
-
-            for dof in range(1):
-                diff = u[dof+1, i]
+            for dof in range(3):
+                diff = u[dof, i]
                 pressure_ago = np.append(pressure_ago, int( robot.anchor_ago_list[dof] + diff ))
                 pressure_ant = np.append(pressure_ant, int( robot.anchor_ant_list[dof] - diff ))
             
-            pressure_ago = np.append(pressure_ago, int( robot.anchor_ago_list[2] ))
-            pressure_ant = np.append(pressure_ant, int( robot.anchor_ant_list[2] ))
+            pressure_ago[1] = int( robot.anchor_ago_list[1] )
+            pressure_ant[1] = int( robot.anchor_ant_list[1] )
             pressure_ago = np.append(pressure_ago, int( robot.anchor_ago_list[3] ))
             pressure_ant = np.append(pressure_ant, int( robot.anchor_ant_list[3] ))
 
@@ -109,28 +110,31 @@ def SystemIdentification(robot, initial_angle, file_name):
         for i in range(0, len(t_stamp)):
             t_stamp[i] = t_stamp[i] - initial_time
 
+        plt.plot(t_stamp, [position[4*i+1]/math.pi*180 for i in range(N)])
+        plt.show()
+
         print("total duration:",t_stamp[-1]-t_stamp[0])
         print("expected:",t_stamp_u[-1])
         print("number of simulation:",len(t_stamp))
         print("desired number:",len(t_stamp_u))
 
-        print("begin to write data to the file...")
-        f = open(f_output, 'w')
-        f.write(str(p))
-        f.write("\n")
-        f.write(str(m))
-        f.write("\n")
-        f.write(str(N))
-        f.write("\n")
-        np.savetxt(f, t_stamp,          fmt='%.5f')
-        np.savetxt(f, u,                fmt='%.8f')
-        np.savetxt(f, des_pressure_ago, fmt='%.5f')
-        np.savetxt(f, des_pressure_ant, fmt='%.5f')
-        np.savetxt(f, obs_pressure_ago, fmt='%.5f')
-        np.savetxt(f, obs_pressure_ant, fmt='%.5f')
-        np.savetxt(f, position,         fmt='%.8f')
-        f.close()
-        print('...completed')
+        # print("begin to write data to the file...")
+        # f = open(f_output, 'w')
+        # f.write(str(p))
+        # f.write("\n")
+        # f.write(str(m))
+        # f.write("\n")
+        # f.write(str(N))
+        # f.write("\n")
+        # np.savetxt(f, t_stamp,          fmt='%.5f')
+        # np.savetxt(f, u,                fmt='%.8f')
+        # np.savetxt(f, des_pressure_ago, fmt='%.5f')
+        # np.savetxt(f, des_pressure_ant, fmt='%.5f')
+        # np.savetxt(f, obs_pressure_ago, fmt='%.5f')
+        # np.savetxt(f, obs_pressure_ant, fmt='%.5f')
+        # np.savetxt(f, position,         fmt='%.8f')
+        # f.close()
+        # print('...completed')
 
 if __name__=='__main__':
     obj = 'real'
@@ -143,5 +147,5 @@ if __name__=='__main__':
     Pamy = PAMY_CONFIG.build_pamy(frontend=frontend)
     RG = RobotGeometry(initial_posture=PAMY_CONFIG.GLOBAL_INITIAL)
 
-    file_name = '/home/mtian/Pamy_OCO/excitation signals/excitation_10Hz_new.csv'
+    file_name = '/home/mtian/Pamy_OCO/excitation signals/excitation_3Hz_new.csv'
     SystemIdentification(robot=Pamy, initial_angle=PAMY_CONFIG.GLOBAL_INITIAL, file_name=file_name)

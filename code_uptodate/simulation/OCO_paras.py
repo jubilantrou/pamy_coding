@@ -16,18 +16,20 @@ def get_paras():
     parser.add_argument('--coupling', default='yes', type=str, choices=['yes','no'], help='whether to consider the coupling between dofs when constructing the training input data')
     parser.add_argument('--width', default=3, type=int, help='the width of input data when using CNN')
     parser.add_argument('--filter_size', default=31, type=int, help='the kernel size for the height dimension when using CNN')
-    parser.add_argument('--hidden_size', nargs='*', default=[32], type=int, help='the sizes for hidden layers when using FCN')   
+    parser.add_argument('--hidden_size', nargs='*', default=[64], type=int, help='the sizes for hidden layers when using FCN')   
     parser.add_argument('--method_updating_traj', default='no_delay', type=str, choices=['no_delay','with_delay'], help='whether to add a delay when updating the trajectory, where with_delay works with h=10')
     parser.add_argument('--method_updating_policy', default='GD', type=str, choices=['GD','NM'], help='use online gradient descent or online Newton method to update the u_ff policy parameters')
-    parser.add_argument('--lr_list', nargs=3, default=[5.0, 5.0, 5.0], type=float, help='learning rates')
+    parser.add_argument('--lr_list', nargs=3, default=[1.0, 1.0, 1.0], type=float, help='learning rates')
     parser.add_argument('--alpha_list', nargs=3, default=[1.0, 1.0, 1.0], type=float, help='one of the hyperparameters for the Newton method')
     parser.add_argument('--epsilon_list', nargs=3, default=[1.0, 1.0, 1.0], type=float, help='one of the hyperparameters for the Newton method')
     parser.add_argument('--flag_dof', nargs=3, default=[True, True, True], type=bool, help='whether to include each dof in the training considering an error in the simulator')
-    parser.add_argument('--flag_wandb', action='store_false', help='whether to record the training process using wandb')
+    parser.add_argument('--flag_wandb', action='store_true', help='whether to record the training process using wandb')
     parser.add_argument('--flag_time_analysis', action='store_true', help='whether to use pyinstrument to analyse the time consumption of different parts')
-    parser.add_argument('--save_path_num', default=33, type=int, help='indicate the sequence number of the file where we restore results')
+    parser.add_argument('--save_path_num', default=3000, type=int, help='indicate the sequence number of the file where we restore results')
     parser.add_argument('--seed', default=5431, type=int, help='choose the seed for the reproducibility')
     parser.add_argument('--check_paras', action='store_false', help='remind the user to check parameters again before running the experiment')
+    parser.add_argument('--ff_model', default=None, type=str, help='whether to use a pretrained u_ff policy as a start')
+    parser.add_argument('--control_diagram', default='trainable ff', type=str, help='describe the control diagram we use')
 
     paras = parser.parse_args()
     paras.__setattr__('height', int((paras.h_l+paras.h_r)/paras.ds)+1)
@@ -41,7 +43,7 @@ def get_paras():
         print("Let's go training!")
         return paras
     else:
-        raise ValueError("Check parameters before training! Especially pay attention to the address for results storing.")
+        raise ValueError("Check parameters before training! Especially pay attention to the address for storing results.")
 
 if __name__=='__main__':
     paras = get_paras()

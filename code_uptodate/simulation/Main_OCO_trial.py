@@ -49,19 +49,20 @@ print('-'*30)
 print('feedforward blocks')
 print('-'*30)
 block_list, shape_list, idx_list, W_list = trainable_blocks_init(flag_dof=paras.flag_dof, nn_type=paras.nn_type, nr_channel=paras.nr_channel, 
-                                                       height=paras.height, width=paras.width, filter_size=paras.filter_size, device=device, hidden_size=paras.hidden_size, model='/home/mtian/Desktop/MPI-intern/training_log_temp_11/linear_model/4000/')
-print('-'*30)
-print('feedback blocks')
-print('-'*30)
-# TODO: add the parameters of trainable fb blocks into get_paras()
-fb_block_list, fb_shape_list, fb_idx_list, fb_W_list = trainable_blocks_init(flag_dof=paras.flag_dof, nn_type='FCN', nr_channel=1, 
-                                                                height=fb_input, width=1, filter_size=None, device=device, hidden_size=[16])
+                                                       height=paras.height, width=paras.width, filter_size=paras.filter_size, device=device, hidden_size=paras.hidden_size, model='/home/mtian/Desktop/MPI-intern/training_log_temp_2001/linear_model_ff/400/')
+# print('-'*30)
+# print('feedback blocks')
+# print('-'*30)
+# # TODO: add the parameters of trainable fb blocks into get_paras()
+# fb_block_list, fb_shape_list, fb_idx_list, fb_W_list = trainable_blocks_init(flag_dof=paras.flag_dof, nn_type='FCN', nr_channel=1, 
+#                                                                 height=fb_input, width=1, filter_size=None, device=device, hidden_size=[16])
 
 # %% do the online learning
 if paras.flag_wandb:
     wandb.init(
         entity='jubilantrou',
-        project='pamy_oco_trial'
+        project='pamy_oco_trial',
+        config = paras
     )
 
 ### initialize the hessian part for the Newton method
@@ -107,13 +108,16 @@ while True:
 
     ### get the real output
     Pamy.AngleInitialization(PAMY_CONFIG.GLOBAL_INITIAL)
+    Pamy.PressureInitialization(duration=1)
 
     reset_pressures = np.array(Pamy.frontend.latest().get_observed_pressures())
     Pamy.anchor_ago_list = reset_pressures[:, 0]
     Pamy.anchor_ant_list = reset_pressures[:, 1]
+    print('reset anchor pressures:')
+    print(reset_pressures)
 
     angle_initial_read = np.array(frontend.latest().get_positions())
-    (y, ff, fb, obs_ago, obs_ant, des_ago, des_ant, fb_datasets) = Pamy.online_convex_optimization(b_list=u, mode_name='ff+fb', coupling=paras.coupling, learning_mode='u', trainable_fb=fb_block_list, device=device, dim_fb=fb_input)
+    (y, ff, fb, obs_ago, obs_ant, des_ago, des_ant, fb_datasets) = Pamy.online_convex_optimization(b_list=u, mode_name='ff+fb', coupling=paras.coupling, learning_mode='u', trainable_fb=None, device=device, dim_fb=fb_input)
     y_out = y - y[:, 0].reshape(-1, 1) # relative values of the real output
 
     print('ranges of feedforward inputs:')
@@ -130,60 +134,44 @@ while True:
                    obs_ago=obs_ago, obs_ant=obs_ant, des_ago=des_ago, des_ant=des_ant)
 
     ### compute gradients that will be used to update parameters 
-    # def get_par_paifb_par_y(flag_dof, dim, pid):
+    # Nt*nff
+    par_paiff_par_wff = get_grads_list(dataset=[get_dataset(datapoint=datapoint, batch_size=1)], block_list=block_list)
+
+    # Nt*nfb
+    # par_paifb_par_wfb, par_paifb_par_fbin = get_grads_list(dataset=fb_datasets, block_list=fb_block_list, additional=True)
+
+    ### learnable PD update
+    # def get_par_paifb_par_y(flag_dof, dim, par_paifb_par_fbin, dim_fb):
     #     par_paifb_par_y = []
+    #     choosing_matrix = np.concatenate((np.zeros((dim_fb,dim)), np.eye(dim_fb), np.zeros((dim_fb,dim+1))), axis=1)
     #     for dof,flag in enumerate(flag_dof):
     #         if not flag:
     #             par_paifb_par_y.append(None)
     #         else:
     #             temp = np.zeros((dim,dim))
-    #             for row in range(1,dim):
-    #                 temp[row, row-1] = pid[dof,0]+pid[dof,2]*100
-    #                 if row>1:
-    #                     temp[row, row-2] = -pid[dof,2]*100
+    #             for i in range(dim):
+    #                 temp[i,:] = par_paifb_par_fbin[dof][i,:].reshape(1,-1)@choosing_matrix[:,-1-i-dim:-1-i]
     #             par_paifb_par_y.append(temp)
     #     return par_paifb_par_y
-    
     # # Nt*Nt          
-    # par_paifb_par_y = get_par_paifb_par_y(flag_dof=paras.flag_dof, dim=Pamy.y_desired.shape[1], pid=Pamy.pid_for_tracking)
-    # Nt*nff
-    par_paiff_par_wff = get_grads_list(dataset=[get_dataset(datapoint=datapoint, batch_size=1)], block_list=block_list)
-    # Nt*nfb
-    par_paifb_par_wfb, par_paifb_par_fbin = get_grads_list(dataset=fb_datasets, block_list=fb_block_list, additional=True)
+    # par_paifb_par_y = get_par_paifb_par_y(flag_dof=paras.flag_dof, dim=Pamy.y_desired.shape[1], par_paifb_par_fbin=par_paifb_par_fbin, dim_fb=fb_input)
 
-    def get_par_paifb_par_y(flag_dof, dim, par_paifb_par_fbin, dim_fb):
+    ### fixed PD update
+    def get_par_paifb_par_y(flag_dof, dim, pid):
         par_paifb_par_y = []
-        choosing_matrix = np.concatenate((np.zeros((dim_fb,dim)), np.eye(dim_fb), np.zeros((dim_fb,dim+1))), axis=1)
         for dof,flag in enumerate(flag_dof):
             if not flag:
                 par_paifb_par_y.append(None)
             else:
                 temp = np.zeros((dim,dim))
-                for i in range(dim):
-                    temp[i,:] = par_paifb_par_fbin[dof][i,:].reshape(1,-1)@choosing_matrix[:,-1-i-dim:-1-i]
+                for row in range(1,dim):
+                    temp[row, row-1] = pid[dof,0]+pid[dof,2]*100
+                    if row>1:
+                        temp[row, row-2] = -pid[dof,2]*100
                 par_paifb_par_y.append(temp)
         return par_paifb_par_y
-    # Nt*Nt          
-    par_paifb_par_y = get_par_paifb_par_y(flag_dof=paras.flag_dof, dim=Pamy.y_desired.shape[1], par_paifb_par_fbin=par_paifb_par_fbin, dim_fb=fb_input)
-
-    ### fixed PD update
-    # def get_par_paifb_par_y(flag_dof, dim, pid):
-    #     par_paifb_par_y = []
-    #     for dof,flag in enumerate(flag_dof):
-    #         if not flag:
-    #             par_paifb_par_y.append(None)
-    #         else:
-    #             temp = np.zeros((dim,dim))
-    #             for row in range(1,dim):
-    #                 temp[row, row-1] = pid[dof,0]+pid[dof,2]*100
-    #                 if row>1:
-    #                     temp[row, row-2] = -pid[dof,2]*100
-    #             par_paifb_par_y.append(temp)
-    #     return par_paifb_par_y
-    # '''
-    # Nt x Nt
-    # '''            
-    # par_paifb_par_y = get_par_paifb_par_y(flag_dof=paras.flag_dof, dim=Pamy.y_desired.shape[1], pid=Pamy.pid_for_tracking)
+    # Nt*Nt            
+    par_paifb_par_y = get_par_paifb_par_y(flag_dof=paras.flag_dof, dim=Pamy.y_desired.shape[1], pid=Pamy.pid_for_tracking)
 
     # Nt*Nt
     par_G_par_u = [Pamy.O_list[i].Bu for i in PAMY_CONFIG.dof_list][:3]
@@ -198,13 +186,13 @@ while True:
             temp = np.linalg.pinv(np.eye(Pamy.y_desired.shape[1])+par_G_par_u[dof]@par_paifb_par_y[dof])@par_G_par_u[dof]@par_paiff_par_wff[dof]
             par_y_par_wff.append(temp)
     # Nt*nfb
-    par_y_par_wfb = []
-    for dof,flag in enumerate(paras.flag_dof):
-        if not flag:
-            par_y_par_wfb.append(None)
-        else:
-            temp = np.linalg.pinv(np.eye(Pamy.y_desired.shape[1])+par_G_par_u[dof]@par_paifb_par_y[dof])@par_G_par_u[dof]@par_paifb_par_wfb[dof]
-            par_y_par_wfb.append(temp)
+    # par_y_par_wfb = []
+    # for dof,flag in enumerate(paras.flag_dof):
+    #     if not flag:
+    #         par_y_par_wfb.append(None)
+    #     else:
+    #         temp = np.linalg.pinv(np.eye(Pamy.y_desired.shape[1])+par_G_par_u[dof]@par_paifb_par_y[dof])@par_G_par_u[dof]@par_paifb_par_wfb[dof]
+    #         par_y_par_wfb.append(temp)
 
     def get_new_parameters(W_list, method, lr, par_l_par_y, par_y_par_w, par_pai_par_w):
         for dof in range(len(par_l_par_y)):
@@ -221,8 +209,8 @@ while True:
       
     W_list, delta = get_new_parameters(W_list=W_list, method=paras.method_updating_policy, lr=paras.lr_list, par_l_par_y=par_l_par_y, par_y_par_w=par_y_par_wff, par_pai_par_w=par_paiff_par_wff)   
     block_list = set_parameters(W_list, block_list, idx_list, shape_list, device)
-    fb_W_list, fb_delta = get_new_parameters(W_list=fb_W_list, method=paras.method_updating_policy, lr=[5.0, 5.0, 5.0], par_l_par_y=par_l_par_y, par_y_par_w=par_y_par_wfb, par_pai_par_w=par_paifb_par_wfb) # 1,1,0.5   
-    fb_block_list = set_parameters(fb_W_list, fb_block_list, fb_idx_list, fb_shape_list, device)
+    # fb_W_list, fb_delta = get_new_parameters(W_list=fb_W_list, method=paras.method_updating_policy, lr=[5.0, 5.0, 5.0], par_l_par_y=par_l_par_y, par_y_par_w=par_y_par_wfb, par_pai_par_w=par_paifb_par_wfb)   
+    # fb_block_list = set_parameters(fb_W_list, fb_block_list, fb_idx_list, fb_shape_list, device)
 
     if (i_iter+1)%100==0:
         root_model_epoch = '/home/mtian/Desktop/MPI-intern/training_log_temp_'+ str(paras.save_path_num) +'/linear_model_ff' + '/' + str(i_iter+1)
@@ -232,13 +220,13 @@ while True:
                 continue
             root_file = root_model_epoch + '/' + str(dof)
             torch.save(cnn.state_dict(), root_file)
-        fb_root_model_epoch = '/home/mtian/Desktop/MPI-intern/training_log_temp_'+ str(paras.save_path_num) +'/linear_model_fb' + '/' + str(i_iter+1)
-        mkdir(fb_root_model_epoch) 
-        for dof,cnn in enumerate(fb_block_list):
-            if cnn is None:
-                continue
-            fb_root_file = fb_root_model_epoch + '/' + str(dof)
-            torch.save(cnn.state_dict(), fb_root_file)
+        # fb_root_model_epoch = '/home/mtian/Desktop/MPI-intern/training_log_temp_'+ str(paras.save_path_num) +'/linear_model_fb' + '/' + str(i_iter+1)
+        # mkdir(fb_root_model_epoch) 
+        # for dof,cnn in enumerate(fb_block_list):
+        #     if cnn is None:
+        #         continue
+        #     fb_root_file = fb_root_model_epoch + '/' + str(dof)
+        #     torch.save(cnn.state_dict(), fb_root_file)
     
     if (i_iter+1)%20==0:
         root_file = '/home/mtian/Desktop/MPI-intern/training_log_temp_'+ str(paras.save_path_num) +'/linear_model/log_data/' + str(i_iter+1)

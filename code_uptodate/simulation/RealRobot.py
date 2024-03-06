@@ -101,10 +101,10 @@ class Robot:
                                           [0,  0, 0],
                                           [0,  0, 0],
                                           [0,  0, 0]]) # w/o PD
-        # self.pid_for_tracking = 0.6*np.array([[-4132,  0, -259.96],
-        #                                       [-7520,  0, -709.7],
-        #                                       [-11320,  0, -627.27],
-        #                                       [-16560,  0, -227.65]]) # PD for the real robot
+        # self.pid_for_tracking = 0.6*np.array([[-4420,  0, -276.25],
+        #                                       [-7040,  0, -733.04],
+        #                                       [-12080,  0, -419.78],
+        #                                       [0,  0, 0]]) # PD for the real robot
         # NN
         self.A_list = A_list 
         self.A_bias = A_bias
@@ -304,28 +304,29 @@ class Robot:
         
         self.frontend.pulse()
 
-        fb_inputs = [[0.0]*dim_fb]*3
-        fb_datasets = [[],[],[]]
+        # fb_inputs = [[0.0]*dim_fb]*3
+        # fb_datasets = [[],[],[]]
+        fb_datasets = None
 
         # how mang steps to track
         for i in range( y_list.shape[1] ):
             # all following vectors must be column vectors
             angle_delta = (y_list[:, i] + angle_initial - theta).reshape(len(self.dof_list), -1)
 
-            fb_outputs = np.array([0.0]*4)
-            for i_t in range(3):
-                fb_inputs[i_t].pop(0)
-                fb_inputs[i_t].append(angle_delta[i_t,0])
-                temp_input = torch.tensor(np.array(fb_inputs[i_t]), dtype=float).view(-1).to(device)
-                fb_datasets[i_t].append(temp_input)
-                if trainable_fb[i_t] is None:
-                    continue
-                trainable_fb[i_t].eval()
-                try:
-                    fb_outputs[i_t] = trainable_fb[i_t](temp_input).cpu().detach().numpy().flatten()
-                except:
-                    fb_outputs[i_t] = trainable_fb[i_t](temp_input.float()).cpu().detach().numpy().flatten()
-            fb_outputs = fb_outputs.reshape(len(self.dof_list), -1)
+            # fb_outputs = np.array([0.0]*4)
+            # for i_t in range(3):
+            #     fb_inputs[i_t].pop(0)
+            #     fb_inputs[i_t].append(angle_delta[i_t,0])
+            #     temp_input = torch.tensor(np.array(fb_inputs[i_t]), dtype=float).view(-1).to(device)
+            #     fb_datasets[i_t].append(temp_input)
+            #     if trainable_fb[i_t] is None:
+            #         continue
+            #     trainable_fb[i_t].eval()
+            #     try:
+            #         fb_outputs[i_t] = trainable_fb[i_t](temp_input).cpu().detach().numpy().flatten()
+            #     except:
+            #         fb_outputs[i_t] = trainable_fb[i_t](temp_input.float()).cpu().detach().numpy().flatten()
+            # fb_outputs = fb_outputs.reshape(len(self.dof_list), -1)
 
             res_d = ( angle_delta - angle_delta_pre ) / t
             res_i += angle_delta * t
@@ -337,11 +338,11 @@ class Robot:
             angle_delta_pre = np.copy( angle_delta )
 
             if i == 0:
-                # fb = np.copy( feedback )
-                fb = np.copy( fb_outputs )
+                fb = np.copy( feedback )
+                # fb = np.copy( fb_outputs )
             else:
-                # fb = np.hstack((fb, feedback))
-                fb = np.hstack((fb, fb_outputs))
+                fb = np.hstack((fb, feedback))
+                # fb = np.hstack((fb, fb_outputs))
 
             pressure_ago = np.array([], dtype=int)
             pressure_ant = np.array([], dtype=int)
@@ -442,7 +443,7 @@ class Robot:
                                       o80.Mode.QUEUE)
             # sending the command to the robot, and waiting for its completion.
             self.frontend.pulse_and_wait()
-            # time.sleep(1)
+            time.sleep(duration)
         # for dof in self.dof_list:
         #     print("the {}. ago/ant pressure is: {:.2f}/{:.2f}".format(dof, pressures[dof, 0], pressures[dof, 1]) )
 

@@ -2,30 +2,22 @@
 This script is used to define the related functions 
 for the OCO training procedure.
 '''
-import PAMY_CONFIG
 import math
 import os
 import numpy as np
 import matplotlib.pyplot as plt
 import pickle5 as pickle
 import random
-import o80_pam
 import torch
-import torch.nn as nn
-import time
-from RealRobotGeometry import RobotGeometry
-import torch.nn as nn
-import o80
 import wandb
-from pyinstrument import Profiler
 
 def fix_seed(seed):
     '''
     to ensure the reproducibility
     '''
-    torch.manual_seed(seed)
     np.random.seed(seed)
     random.seed(seed)
+    torch.manual_seed(seed)
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
     if torch.cuda.is_available():
@@ -34,70 +26,118 @@ def fix_seed(seed):
 
 def get_random():
     '''
-    to randomly generate the T_go and the target position
+    to randomly generate the mimic interception time point and the mimic interception position
+
+    Returns:
+        t: the mimic interception time point, in seconds
+        theta: the mimic interception position, in rads and in the joint space
     '''
+    t = random.randrange(90, 100)/100
     theta = np.zeros(3)
     theta[0] = random.choice([random.randrange(-900, -450)/10, random.randrange(450, 900)/10])
     theta[1] = random.randrange(150, 750)/10
     theta[2] = random.randrange(150, 750)/10
-    t        = random.randrange(90, 100)/100
-    theta    = theta * math.pi/180
+    theta = theta * math.pi/180
     return (t, theta)
 
-def get_compensated_data(data, h_l, h_r, option=None):
+def get_compensated_data(data, h_l, h_r):
     '''
-    to pad the reference trajectory
+    to pad the reference trajectory using replicate padding for ease of sliding a window along it
+
+    Args:
+        data: the reference trajectory to be padded
+        h_l: the window length to the left of the centered time point
+        h_r: the window length to the right of the centered time point
+        (thus, the whole window length will be h_l+h_r+1)
+    Returns:
+        aug_data: the padded reference trajectory
     '''
     I_left = np.tile(data[:, 0].reshape(-1, 1), (1, h_l))
     I_right = np.tile(data[:, -1].reshape(-1, 1), (1, h_r))
-    if option=='only_left':
-        aug_data = np.hstack((I_left, data))
-    else:
-        aug_data = np.hstack((I_left, data, I_right))
-    return aug_data  
+    aug_data = np.hstack((I_left, data, I_right))
+    return aug_data
 
-def get_datapoint(y, h_l, h_r, ds, device, sub_traj=None, ref=None, paras=None):
+def get_datapoints(aug_data, window_size, ds, device, nn_type):
     '''
-    to get the datapoint from the reference trajectory
-    '''
-    l = y.shape[1]
-    aug_y = get_compensated_data(y, h_l, h_r)
-    datapoint = []
+    to extract datapoints of each time step from the padded reference trajectory
 
+    Args:
+        aug_data: the padded reference trajectory
+        window_size: the whole length of the window
+        ds: the stride for down sampling inside the window
+        device: where to send datapoints for training later
+        nn_type: the type of the neural network we used for training, which determines the dimension of datapoints
+    Returns:
+        datapoints: extracted datapoints
+    '''
+    datapoints = []
+
+    l = aug_data.shape[1] - window_size + 1
     for k in range(l):
-        if sub_traj is None:
-            y_temp = np.concatenate((aug_y[0, k:k+(h_l+h_r)+1:ds].reshape(1,-1), aug_y[1, k:k+(h_l+h_r)+1:ds].reshape(1,-1), aug_y[2, k:k+(h_l+h_r)+1:ds].reshape(1,-1)), axis=0)
-        else:
-            choice = 0
-            for ele in ref:
-                if k>ele:
-                    choice += 1
-                else:
-                    break
-            if choice<len(ref):
-                y_temp = np.concatenate((sub_traj[choice][0, k:k+(h_l+h_r)+1:ds].reshape(1,-1), sub_traj[choice][1, k:k+(h_l+h_r)+1:ds].reshape(1,-1), sub_traj[choice][2, k:k+(h_l+h_r)+1:ds].reshape(1,-1)), axis=0)
-            else:
-                y_temp = np.concatenate((aug_y[0, k:k+(h_l+h_r)+1:ds].reshape(1,-1), aug_y[1, k:k+(h_l+h_r)+1:ds].reshape(1,-1), aug_y[2, k:k+(h_l+h_r)+1:ds].reshape(1,-1)), axis=0)            
-        if paras.nn_type=='FCN':
-            # data: (channel x height x width)
-            datapoint.append(torch.tensor(y_temp, dtype=float).view(-1).to(device))
-        elif paras.nn_type=='CNN':
-            # data: channel x height x width
-            datapoint.append(torch.tensor(y_temp, dtype=float).view(paras.nr_channel, paras.height, paras.width).to(device))
+        datapoint = aug_data[0:3, k:k+window_size:ds].reshape(3,-1)
+        if nn_type=='FCN':
+            # the dim of data: (channel x height x width)
+            datapoints.append(torch.tensor(datapoint, dtype=float).view(-1).to(device))
+        elif nn_type=='CNN':
+            # the dim of data: channel x height x width
+            # TODO: not to hard code the dimensnion for CNN
+            datapoints.append(torch.tensor(datapoint.T, dtype=float).view(1, -1, 3).to(device))
     
-    return datapoint
+    return datapoints
 
-def get_dataset(datapoint, batch_size):
+def get_datapoints_pro(aug_data, ref, window_size, ds, device, nn_type):
     '''
-    to construct the dataset from the datapoint
+    to extract datapoints of each time step from the padded reference trajectory with mimic online updates
+
+    Args:
+        aug_data: a list of padded reference trajectories in the order of online updating, with the last element as the final valid reference trajectory
+        ref: a list of time steps indicating when online updates happened
+        window_size: the whole length of the window
+        ds: the stride for down sampling inside the window
+        device: where to send datapoints for training later
+        nn_type: the type of the neural network we used for training, which determines the dimension of datapoints
+    Returns:
+        datapoints: extracted datapoints
     '''
-    l = len(datapoint)
+    datapoints = []
+
+    l = aug_data[-1].shape[1] - window_size + 1
+    for k in range(l):
+        choice = 0
+        for ele in ref:
+            if k>ele:
+                choice += 1
+            else:
+                break
+        datapoint = aug_data[choice][0:3, k:k+window_size:ds].reshape(3,-1)         
+        if nn_type=='FCN':
+            # the dim of data: (channel x height x width)
+            datapoints.append(torch.tensor(datapoint, dtype=float).view(-1).to(device))
+        elif nn_type=='CNN':
+            # the dim of data: channel x height x width
+            # TODO: not to hard code the dimensnion for CNN
+            datapoints.append(torch.tensor(datapoint.T, dtype=float).view(1, -1, 3).to(device))
+    
+    return datapoints
+
+def get_dataset(datapoints, batch_size):
+    '''
+    to construct a dataset from datapoints
+
+    Args:
+        datapoints: individual datapoints
+        batch_size: how many datapoints to batch together
+    Returns:
+        dataset: the constructed dataset
+    '''
     dataset = []
+    
+    l = len(datapoints)
     idx = 0
     while idx + batch_size - 1 < l:
-        data_ = datapoint[idx:idx+batch_size]
-        batch = torch.stack(data_)
-        # elements in dataset: batchsize x (channel x height x width)
+        data = datapoints[idx:idx+batch_size]
+        # the dim of the element in dataset: batchsize x (channel x height x width) for FCN and batchsize x channel x height x width for CNN
+        batch = torch.stack(data)
         dataset.append(batch)
         idx += batch_size
 
@@ -348,3 +388,6 @@ def mkdir(path):
 #     elif step_size_version == 'sqrt':
 #         step_size = factor[dof]/(2+np.sqrt(nr))
 #     return step_size 
+
+if __name__=='__main__':
+    print('to be done')

@@ -91,7 +91,7 @@ while True:
         time_point=0, T_go=t, angle=PAMY_CONFIG.GLOBAL_INITIAL, target=angle, method=paras.method_updating_traj)
     aug_ref_traj = []
     for j in range(len(update_point_index_list)):
-        comp = get_compensated_data(data=np.hstack((theta[:,:update_point_index_list[j]], theta_list[j][:,time_update_record[j]:])), h_l=paras.h_l, h_r=paras.h_r, option='only_left')
+        comp = get_compensated_data(data=np.hstack((theta[:,:update_point_index_list[j]], theta_list[j][:,time_update_record[j]:])), h_l=paras.h_l, h_r=0)
         comp = comp - comp[:,0].reshape(-1, 1) # rel
         aug_ref_traj.append(comp)
     theta = np.vstack((theta, np.zeros((1, theta.shape[1]))))
@@ -103,7 +103,8 @@ while True:
     Pamy.GetOptimizer_convex(angle_initial=PAMY_CONFIG.GLOBAL_INITIAL, nr_channel=paras.nr_channel, coupling=paras.coupling)   
 
     ### get the feedforward inputs
-    datapoint = get_datapoint(y=Pamy.y_desired, h_l=paras.h_l, h_r=paras.h_r, ds=paras.ds, device=device, sub_traj=aug_ref_traj, ref=update_point_index_list, paras=paras)
+    aug_ref_traj.append(Pamy.y_desired)
+    datapoint = get_datapoints_pro(aug_data=aug_ref_traj, ref=update_point_index_list, window_size=(paras.h_l+paras.h_r+1), ds=paras.ds, device=paras.device, nn_type=paras.nn_type)
     u = get_prediction(datapoint=datapoint, block_list=block_list, y=Pamy.y_desired)
 
     ### get the real output

@@ -6,6 +6,7 @@ from scipy.optimize import minimize
 # import tensorflow as tf
 from LimitCheck import LimitCheck
 import pickle5 as pickle
+import scipy
 # %%
 class Filter:
 
@@ -326,7 +327,34 @@ class Filter:
         h_zero = np.tile(0, 1+self.delay+self.order_num).reshape(-1, 1)
         self.y_des_bar = np.vstack((h_zero, self.y_des[0:self.y_des.shape[0]-self.delay]))
         self.Xi = self.get_Xi(h_in_left=h, h_in_right=h, nr_channel=nr_channel)
+
+    def GenerateGlobalMatrix_convex_MIMO(self, h=100, nr_channel=1, mode_name='pd', Bu_mode='calculation'):
+        '''
+        # TODO: load matrices generated in different ways
+        '''
+        A = scipy.io.loadmat('/home/mtian/Desktop/a.mat')['a']
+        b = scipy.io.loadmat('/home/mtian/Desktop/b.mat')['b']
+        c = scipy.io.loadmat('/home/mtian/Desktop/c.mat')['c']
+
+        Bu = np.zeros((3, 3*self.dim))
+        Bu[0:3, 0:3] = c@b
+
+        self.A_power_list = [np.eye(A.shape[0])]
+        I_A = A@np.eye(A.shape[0])
         
+        for row in range(1, self.dim):
+            self.A_power_list.append(I_A)
+            
+            M_temp = Bu[-3:, 0:(3*self.dim-3)]
+
+            M_temp = np.hstack((c@I_A@b, M_temp))
+
+            I_A = A@I_A
+
+            Bu = np.vstack((Bu, M_temp))
+
+        
+        self.Bu = Bu      
 
     def GenerateVector(self, ff, y, mode_name='none' ):
         '''

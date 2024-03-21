@@ -182,7 +182,7 @@ class Robot:
             O = Filter(dof, self.y_desired[dof, :], self.v_desired[dof, :], self.a_desired[dof, :], self.j_desired[dof, :], self.y_desired.shape[1],
                        self.pressure_min[dof], self.pressure_max[dof], self.model_num[dof, :], self.model_den[dof, :],
                        self.model_num_order[dof], self.model_den_order[dof], self.model_ndelay_list[dof], angle_initial)                                    
-            O.GenerateGlobalMatrix_convex(h=h, nr_channel=nr_channel, mode_name=mode_name, Bu_mode=Bu_mode)
+            O.GenerateGlobalMatrix_convex_MIMO(h=h, nr_channel=nr_channel, mode_name=mode_name, Bu_mode=Bu_mode)
             self.O_list.append(O)
 
             # if learning_mode == 'u':

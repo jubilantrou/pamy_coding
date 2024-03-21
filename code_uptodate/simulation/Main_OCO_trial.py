@@ -24,6 +24,7 @@ import wandb
 from pyinstrument import Profiler
 from OCO_paras import get_paras
 from OCO_funcs import *
+from OCO_plots import *
 
 # %% initialize the parameters, the gpu and the robot
 paras = get_paras()
@@ -48,7 +49,11 @@ fb_input = 20
 print('-'*30)
 print('feedforward blocks')
 print('-'*30)
-block_list, shape_list, idx_list, W_list = trainable_blocks_init(flag_dof=paras.flag_dof, nn_type=paras.nn_type, nr_channel=paras.nr_channel, 
+if paras.pamy_system=='MIMO':
+    block_list, shape_list, idx_list, W_list = trainable_block_init(nn_type=paras.nn_type, nr_channel=paras.nr_channel, 
+                                                       height=paras.height, width=paras.width, device=device, hidden_size=paras.hidden_size)
+else:
+    block_list, shape_list, idx_list, W_list = trainable_blocks_init(flag_dof=paras.flag_dof, nn_type=paras.nn_type, nr_channel=paras.nr_channel, 
                                                        height=paras.height, width=paras.width, filter_size=paras.filter_size, device=device, hidden_size=paras.hidden_size, model='/home/mtian/Desktop/MPI-intern/training_log_temp_2001/linear_model_ff/400/')
 # print('-'*30)
 # print('feedback blocks')
@@ -103,11 +108,12 @@ while True:
     Pamy.GetOptimizer_convex(angle_initial=PAMY_CONFIG.GLOBAL_INITIAL, nr_channel=paras.nr_channel, coupling=paras.coupling)   
 
     ### get the feedforward inputs
-    aug_ref_traj.append(Pamy.y_desired)
-    datapoint = get_datapoints_pro(aug_data=aug_ref_traj, ref=update_point_index_list, window_size=(paras.h_l+paras.h_r+1), ds=paras.ds, device=paras.device, nn_type=paras.nn_type)
-    u = get_prediction(datapoint=datapoint, block_list=block_list, y=Pamy.y_desired)
+    aug_ref_traj.append(get_compensated_data(data=Pamy.y_desired, h_l=paras.h_l, h_r=paras.h_r))
+    datapoint = get_datapoints_pro(aug_data=aug_ref_traj, ref=update_point_index_list, window_size=(paras.h_l+paras.h_r+1), ds=paras.ds, device=device, nn_type=paras.nn_type)
+    u = get_prediction(datapoints=datapoint, block_list=block_list, Nt=Pamy.y_desired.shape[1])
 
     ### get the real output
+    # TODO
     Pamy.AngleInitialization(PAMY_CONFIG.GLOBAL_INITIAL)
     Pamy.PressureInitialization(duration=1)
 
@@ -135,8 +141,8 @@ while True:
                    obs_ago=obs_ago, obs_ant=obs_ant, des_ago=des_ago, des_ant=des_ant)
 
     ### compute gradients that will be used to update parameters 
-    # Nt*nff
-    par_paiff_par_wff = get_grads_list(dataset=[get_dataset(datapoint=datapoint, batch_size=1)], block_list=block_list)
+    # 3*Nt x nff
+    par_paiff_par_wff = get_grads_list(dataset=[get_dataset(datapoints=datapoint, batch_size=1)], block_list=block_list)
 
     # Nt*nfb
     # par_paifb_par_wfb, par_paifb_par_fbin = get_grads_list(dataset=fb_datasets, block_list=fb_block_list, additional=True)
@@ -171,21 +177,27 @@ while True:
                         temp[row, row-2] = -pid[dof,2]*100
                 par_paifb_par_y.append(temp)
         return par_paifb_par_y
-    # Nt*Nt            
-    par_paifb_par_y = get_par_paifb_par_y(flag_dof=paras.flag_dof, dim=Pamy.y_desired.shape[1], pid=Pamy.pid_for_tracking)
+    # 3*Nt x 3*Nt            
+    # par_paifb_par_y = get_par_paifb_par_y(flag_dof=paras.flag_dof, dim=Pamy.y_desired.shape[1], pid=Pamy.pid_for_tracking)
+    par_paifb_par_y = [np.zeros((3*Pamy.y_desired.shape[1], 3*Pamy.y_desired.shape[1]))]
 
-    # Nt*Nt
+    # 3*Nt x 3*Nt
+    # TODO
     par_G_par_u = [Pamy.O_list[i].Bu for i in PAMY_CONFIG.dof_list][:3]
-    # 1*Nt
-    par_l_par_y = [(y-theta_)[i].reshape(1,-1) for i in range(len(y))][:3]
-    # Nt*nff
+    # 1 x 3*Nt
+    par_l_par_y = [((y_out-theta)[0:3].T).reshape(1,-1)]
+    # 3*Nt x nff
     par_y_par_wff = []
-    for dof,flag in enumerate(paras.flag_dof):
-        if not flag:
-            par_y_par_wff.append(None)
-        else:
-            temp = np.linalg.pinv(np.eye(Pamy.y_desired.shape[1])+par_G_par_u[dof]@par_paifb_par_y[dof])@par_G_par_u[dof]@par_paiff_par_wff[dof]
-            par_y_par_wff.append(temp)
+    if paras.pamy_system=='MIMO':
+        temp = np.linalg.pinv(np.eye(3*Pamy.y_desired.shape[1])+par_G_par_u[0]@par_paifb_par_y[0])@par_G_par_u[0]@par_paiff_par_wff[0]
+        par_y_par_wff.append(temp)
+    else:
+        for dof,flag in enumerate(paras.flag_dof):
+            if not flag:
+                par_y_par_wff.append(None)
+            else:
+                temp = np.linalg.pinv(np.eye(Pamy.y_desired.shape[1])+par_G_par_u[dof]@par_paifb_par_y[dof])@par_G_par_u[dof]@par_paiff_par_wff[dof]
+                par_y_par_wff.append(temp)
     # Nt*nfb
     # par_y_par_wfb = []
     # for dof,flag in enumerate(paras.flag_dof):
@@ -201,6 +213,7 @@ while True:
                 W_list[dof] = None
                 continue
             if method == 'GD':
+                # TODO: first ele in list of lr works for MIMO
                 delta = (lr[dof]*par_l_par_y[dof]@par_y_par_w[dof]).reshape(-1, 1)
             elif method == 'NM':
                 hessian_temp[dof] += par_y_par_w[dof].T@par_y_par_w[dof]+paras.alpha_list[dof]*par_pai_par_w[dof].T@par_pai_par_w[dof]+paras.epsilon_list[dof]*np.eye(par_pai_par_w[dof].shape[1])

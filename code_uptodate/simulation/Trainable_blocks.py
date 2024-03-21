@@ -67,12 +67,14 @@ class CNN(nn.Module):
         return preds.float()
 
 class FCN(nn.Module):
-    def __init__(self, channel_in, height, width, hidden_size):     
+    def __init__(self, channel_in, height, width, hidden_size, out_size):     
         super(FCN, self).__init__()
 
         self.fc = nn.Sequential(  nn.Linear( channel_in*height*width, hidden_size[0], bias=True),    
-                                  nn.ReLU(),    
-                                  nn.Linear( hidden_size[0], 1, bias=True), 
+                                  nn.ReLU(),
+                                  nn.Linear( hidden_size[0], hidden_size[0], bias=True),    
+                                  nn.ReLU(),     
+                                  nn.Linear( hidden_size[0], out_size, bias=True), 
                                   # nn.Tanh(),
                                 )
         
@@ -107,7 +109,7 @@ def trainable_blocks_init(flag_dof, nn_type, nr_channel, height, width, filter_s
             block_list.append(None)
         else:
             if nn_type=='FCN':
-              block = FCN(channel_in=nr_channel, height=height, width=width, hidden_size=hidden_size)
+              block = FCN(channel_in=nr_channel, height=height, width=width, hidden_size=hidden_size, out_size=1)
             elif nn_type=='CNN':
               block = CNN(channel_in=nr_channel, height=height, width=width, filter_size=filter_size)
             ### for pre-trained weights loading
@@ -142,3 +144,47 @@ def trainable_blocks_init(flag_dof, nn_type, nr_channel, height, width, filter_s
             W_list.append(W.cpu().numpy().reshape(-1, 1))
 
     return block_list, shape_list, idx_list, W_list
+
+def trainable_block_init(nn_type, nr_channel, height, width, device, hidden_size, model=None):
+    '''
+    to initialize the trainable blocks
+    '''
+    block_list   = []
+    name_list  = []
+    shape_list = []
+    idx_list   = []
+    idx = 0
+    idx_list.append(idx)
+
+    if nn_type=='FCN':
+        block = FCN(channel_in=nr_channel, height=height, width=width, hidden_size=hidden_size, out_size=3)
+    ### for pre-trained weights loading
+    if model is not None:
+        temp_model = model
+        temp = torch.load(temp_model)
+        block.load_state_dict(temp)
+    ### for self-defined weights initialization
+    # block.apply(weight_init)
+    block.to(device)
+    block_list.append(block)
+
+    for name, param in block.named_parameters():
+        name_list.append(name)
+        shape_list.append(param.shape)
+        d_idx = len(param.data.view(-1))
+        idx += d_idx
+        idx_list.append(idx)
+
+    print('the type of the trainable block: {}'.format(nn_type))
+    print('the length of named parameters: {}'.format(len(shape_list)))
+    print('the number of trainable parameters: {}'.format(idx_list[-1]))
+
+    W_list = []
+    for block in block_list:
+        W = []
+        [W.append(param.data.view(-1)) for param in block.parameters()]
+        W = torch.cat(W)
+        W_list.append(W.cpu().numpy().reshape(-1, 1))
+
+    return block_list, shape_list, idx_list, W_list
+

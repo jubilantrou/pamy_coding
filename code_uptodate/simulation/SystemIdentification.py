@@ -7,10 +7,11 @@ import os
 from get_handle import get_handle
 import o80_pam
 import PAMY_CONFIG
+import math
 # %% constant
 anchor_ago_list        = PAMY_CONFIG.anchor_ago_list
 anchor_ant_list        = PAMY_CONFIG.anchor_ant_list
-dof                    = 3 # which dof to excite
+dof                    = 2 # which dof to excite
 fs                     = 100
 frequency              = 500.0  # frequency of the backend 
 period                 = 1.0/frequency  # period of backend
@@ -19,37 +20,54 @@ iterations_per_command = int(duration_per_command/period)  # sychronize the fron
 anchor_ago             = anchor_ago_list[dof]
 anchor_ant             = anchor_ant_list[dof]
 amp_list               = [PAMY_CONFIG.pressure_limit[dof]/1000]
-print('dof {}: ago is {}, ant is {}, and amp is {}'.format(dof, anchor_ago, anchor_ant, amp_list))
+amp_list = [3.0]
+# print('dof {}: ago is {}, ant is {}, and amp is {}'.format(dof, anchor_ago, anchor_ant, amp_list))
 # %% connect to the simulation and initilize the posture
 # handle           = get_handle(mujoco_id='SI',mode='pressure',generation='second')
 # frontend         = handle.frontends["robot"]
 segment_id = "real_robot"
 frontend = o80_pam.FrontEnd(segment_id)
 duration         = o80.Duration_us.seconds(2)
-frontend.add_command(anchor_ago_list, anchor_ant_list,
-                     duration,
-                     o80.Mode.QUEUE)
-frontend.pulse_and_wait()
+# frontend.add_command(anchor_ago_list, anchor_ant_list,
+#                      duration,
+#                      o80.Mode.QUEUE)
+# frontend.pulse_and_wait()
+Pamy = PAMY_CONFIG.build_pamy(frontend=frontend)
+# (t, step, position, diff, theta_zero) = Pamy.LQRTesting(amp = np.array([[0], [0], [0]])/180*math.pi, t_start = 0.0, t_duration = 10.0)
+# init_pressures = np.array(frontend.latest().get_observed_pressures())
+# print(init_pressures)
+# anchor_ago_list = init_pressures[:,0]
+# anchor_ant_list = init_pressures[:,1]
+# anchor_ago = init_pressures[2,0]
+# anchor_ant = init_pressures[2,1]
+print('dof {}: ago is {}, ant is {}, and amp is {}'.format(dof, anchor_ago, anchor_ant, amp_list))
 # %%
-p         = 10  # how many periods
+p         = 6  # how many periods
 file_path = '/home/mtian/Pamy_OCO/'
-f_input   = file_path + 'excitation signals/excitation_5Hz.csv'
+f_input   = file_path + 'excitation signals/excitation_3Hz.csv'
+# f_input   = file_path + 'excitation signals/excitation_5Hz.csv'
 u         = np.loadtxt(f_input, delimiter=',')
+u = u[0:5,:]
 [m, N]    = u.shape
+# N = u.shape[0]
+# print(N)
+# m = 1
 u         = np.tile(u, p).flatten()
 t_stamp_u = np.arange(0, (m * p * N)/fs, 1/fs)
 t         = 1 / fs
 T         = m * p * N / fs
+print('estimate time: {}s'.format(T))
 # %% do the identification
 for amp in amp_list:
 
-    frontend.add_command(anchor_ago_list, anchor_ant_list,
-                     duration,
-                     o80.Mode.QUEUE)
-    frontend.pulse_and_wait()
+    # frontend.add_command(anchor_ago_list, anchor_ant_list,
+    #                  duration,
+    #                  o80.Mode.QUEUE)
+    # frontend.pulse_and_wait()
 
     u_temp = u * amp  #change the amplitude of the signal
-    f_output = file_path + "5Hz_response_pamy2_real_dof_" + str(dof) + '_amp_' + str(amp) + ".txt"
+    f_output = file_path + "new_3Hz_response_pamy2_real_dof_" + str(dof) + '_amp_' + str(amp) + ".txt"
+    # f_output = file_path + "T13_response_pamy2_real" + '_amp_' + str(amp) + ".txt"
     # initilization
     position = np.array([])
     velocity = np.array([])
@@ -60,9 +78,14 @@ for amp in amp_list:
     t_stamp = np.array([])
 
     ref_iteration   = frontend.latest().get_iteration()  # read the current iteration
-    iteration_begin = ref_iteration + 1000  # set the iteration when beginning
+    iteration_begin = ref_iteration + 500  # set the iteration when beginning
     iteration       = iteration_begin
     
+    frontend.add_command(anchor_ago_list, anchor_ant_list,
+                        o80.Iteration(iteration_begin-1),
+                        o80.Mode.QUEUE)
+    frontend.pulse()
+
     print("begin to excite the mujoco...")
     for i in range(0, len(u_temp)):
         diff = int( u_temp[i] )

@@ -16,13 +16,15 @@ import numpy as np
 
 # %% set parameters
 obj = 'real' # for the simulator or the real robot
-choice = 2 # for which Dof to do the experiment
-amp = 5/180*math.pi # the increased amplitude of the input step signal based on the initial position
+choice = 1 # for which Dof to do the experiment
+amp = -10/180*math.pi # the increased amplitude of the input step signal based on the initial position
 t_start = 0.5 # the starting time of the step signal
-t_duration = 5.0 # the whole time length for recording and plotting
+t_duration = 3.0 # the whole time length for recording and plotting
 mode1 = 'no overshoot' # the name of control type for Ziegler-Nichols method
 mode2 = 'classic PID'
 mode3 = 'Pessen Integral Rule'
+mode4 = 'some overshoot'
+mode = [mode1, mode2, mode3, mode4]
 
 # %% initialize the chosen obj
 if obj=='sim':
@@ -84,29 +86,41 @@ def para_compute(Ku, Tu, mode):
         Kp = 0.7*Ku
         Ki = 1.75*Ku/Tu
         Kd = 0.105*Ku*Tu
+    elif (mode=='some overshoot'):
+        Kp = 0.33*Ku
+        Ki = 0.66*Ku/Tu
+        Kd = 0.11*Ku*Tu
     return(Kp,Ki,Kd)
 
 # %% run the main
 if __name__ == '__main__':
     init = 1
 
-    if init:
+    if init==1:
         # Pamy.AngleInitialization(PAMY_CONFIG.GLOBAL_INITIAL)
-        Pamy.PressureInitialization(duration=4)
+        Pamy.PressureInitialization(duration=1)
         print(np.array(frontend.latest().get_positions())/math.pi*180)
         print(frontend.latest().get_observed_pressures())
         print(PAMY_CONFIG.pressure_limit)
     
+    elif init==2:
+        Ku = 4900
+        Tu = 0.92
+
+        for m in mode:
+            print('computation method: {}'.format(m))
+            print('P, I, D: {}'.format(para_compute(Ku,Tu,m)))
+
     else:
-        (t, step, position) = Pamy.PIDTesting(choice = choice, amp = amp, t_start = t_start, t_duration = t_duration)
         Pamy.PressureInitialization(duration=4)
+        (t, step, position) = Pamy.PIDTesting(choice = choice, amp = amp, t_start = t_start, t_duration = t_duration)
 
         ready_to_process = 0
         peaks = None
         if ready_to_process:
             peaks, _ = scipy.signal.find_peaks(position)
             num_peaks_taken = 3
-            Tu = (t[peaks[-1]]-t[peaks[-1-num_peaks_taken]])/num_peaks_taken
+            Tu = (t[peaks[0+num_peaks_taken]]-t[peaks[0]])/num_peaks_taken
             print('Tu: {}'.format(Tu))
 
             print('computation method: {}'.format(mode1))
@@ -118,5 +132,10 @@ if __name__ == '__main__':
             print('computation method: {}'.format(mode3))
             print('P, I, D: {}'.format(para_compute(Pamy.pid_list[choice,0],Tu,mode3)))
 
+            print('computation method: {}'.format(mode4))
+            print('P, I, D: {}'.format(para_compute(Pamy.pid_list[choice,0],Tu,mode3)))
+
         plot(t, step, position, choice, peaks)
+
+        Pamy.PressureInitialization(duration=4)
         # TODO: do the following procedure via scripts

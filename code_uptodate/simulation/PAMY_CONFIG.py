@@ -10,7 +10,7 @@ import pickle5 as pickle
 import math
 
 # %%
-obj = 'sim'
+obj = 'real'
 
 # %%
 '''
@@ -20,7 +20,7 @@ All the values are absolute values in angular space in rad.
 if obj=='sim':
     GLOBAL_INITIAL = np.array([0, 0.8, 0, 0])
 elif obj=='real':
-    GLOBAL_INITIAL = np.array([0, 45/180*math.pi, 45/180*math.pi, 0])
+    GLOBAL_INITIAL = np.array([0, 45/180*math.pi, 40/180*math.pi, 0])
 
 # %%
 def FulfillZeros( a ):
@@ -271,21 +271,21 @@ if obj=='real':
     order_den_list = np.array([2, 2, 3, 2])
 
     ### changed except for dof4
-    model_num = [[ 4.19619528167931e-06,    -1.37242437850078e-05,     7.38758438977503e-06],
-                 [-4.23441001212260e-07,     7.27603937253921e-07,    -3.74026526563991e-07],
-                 [ 3.83597364382537e-05,    -8.53979117555957e-05,     4.64836136554359e-05],
-                 [ 0,    0]]
+    model_num = [[-1.62821090e-05,  5.20528029e-05, -5.78388629e-05,  2.20054137e-05],
+                 [-1.32219578e-07,	1.71515844e-07,	-9.67963259e-08],
+                 [ 4.07662060e-05, -9.00690473e-05,	 4.85621442e-05],
+                 [ 1,    1]]
     model_num = FulfillZeros(model_num)
 
-    model_den = [[1,    -1.96640862220114,    0.971810842193673],
-                 [1,    -2.92844568221811,    2.86222770471196,	-0.933680740729759],
-                 [1, 	-1.96156940734244,	  0.963125331410091],
-                 [1,    0,     0]]
+    model_den = [[1, -2.92620862,  2.85929334, -0.93289122],
+                 [1, -2.92827953,  2.86224552, -0.93385225],
+                 [1, -1.96090160,  0.96257254],
+                 [1,  1, 1]]
     model_den = FulfillZeros(model_den)   
 
-    model_ndelay_list = [5, 2, 3, 0]
-    model_num_order   = [2, 2, 2, 1]
-    model_den_order   = [2, 3, 2, 2]
+    model_ndelay_list = [2, 1, 3, 0]
+    model_num_order   = [3, 2, 2, 1]
+    model_den_order   = [3, 3, 2, 2]
 # ----------------------------------------------------------------------------------------------------------------
 
 dof_list = [0, 1, 2, 3]
@@ -293,7 +293,6 @@ dof_list = [0, 1, 2, 3]
 if obj=='sim':
     anchor_ago_list = np.array([19300, 17500, 17100, 16000])
     anchor_ant_list = np.array([19900, 22000, 16900, 17400])
-
     ago_min_list = np.array([15000, 15000, 13000, 13000])
     ago_max_list = np.array([24900, 21400, 20900, 18900])
     ant_min_list = np.array([16000, 16000, 13000, 13000])
@@ -301,13 +300,16 @@ if obj=='sim':
 
 elif obj=='real':
     ### for the real robot, the anchor pressures need to be changed time to time due to multiple influence factors
-    anchor_ago_list = np.array([21000, 16500, 13250, 17000])
-    anchor_ant_list = np.array([20000, 14000, 14500, 17000])
+    # anchor_ago_list = np.array([21000, 16500, 13250, 17000])
+    # anchor_ant_list = np.array([20000, 14000, 14500, 17000])
 
-    ago_min_list = np.array([15000, 13500, 10000, 13000])
-    ago_max_list = np.array([26000, 25000, 20000, 19000])
-    ant_min_list = np.array([15000, 10750, 11500, 13000])
-    ant_max_list = np.array([25000, 24000, 22000, 21900])
+    anchor_ago_list = np.array([20500, 22000, 13850, 17000])
+    anchor_ant_list = np.array([20500, 20000, 13850, 17000])
+
+    ago_min_list = np.array([15000, 17000, 9850, 13000])
+    ago_max_list = np.array([26000, 27000, 17850, 19000])
+    ant_min_list = np.array([15000, 15000, 9850, 13000])
+    ant_max_list = np.array([26000, 25000, 17850, 21900])
 
 ago_pressure_max = ago_max_list - anchor_ago_list
 ago_pressure_min = ago_min_list - anchor_ago_list
@@ -340,23 +342,23 @@ elif obj=='real':
                          [-4140,  -44000, -150.25]]) # tuned PID for real robot
 pid_list = FulfillZeros( pid_list )
 
-# delta_d_list   = np.array([1e-9, 1e-11, 1e-8, 1e-9]) 
-# delta_y_list   = np.array([1e-3, 1e-3, 1e-3, 1e-3])
-# delta_w_list   = np.array([1e-9, 1e-11, 1e-8, 1e-9])
-# delta_ini_list = np.array([1e-7, 1e-7, 1e-7, 1e-7])
-delta_d_list = np.zeros(4)
-delta_y_list = np.zeros(4)
-delta_w_list = np.zeros(4)
-delta_ini_list = np.zeros(4)
+delta_d_list   = np.array([1e-8, 1e-10, 1e-8, 1e-9]) 
+delta_y_list   = np.array([1e-3, 1e-3, 1e-3, 1e-3])
+delta_w_list   = np.array([1e-8, 1e-10, 1e-8, 1e-9])
+delta_ini_list = np.array([1e-7, 1e-7, 1e-7, 1e-7])
+# delta_d_list = np.zeros(4)
+# delta_y_list = np.zeros(4)
+# delta_w_list = np.zeros(4)
+# delta_ini_list = np.zeros(4)
 
-# weight_list = [(0.1, 1.0),
-#                (1.0, 1.0),
-#                (0.1, 1.0),
-#                (1.0, 1.0)]
-weight_list = [(0.0, 0.0),
-               (0.0, 0.0),
-               (0.0, 0.0),
-               (0.0, 0.0)]
+weight_list = [(1.0, 1.0),
+               (1.0, 1.0),
+               (1.0, 1.0),
+               (1.0, 1.0)]
+# weight_list = [(0.0, 0.0),
+#                (0.0, 0.0),
+#                (0.0, 0.0),
+#                (0.0, 0.0)]
 
 # %%
 '''

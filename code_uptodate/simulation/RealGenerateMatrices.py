@@ -237,11 +237,15 @@ class Filter:
         self.Bd = Bd
         self.Bdes = Bdes
 
-        self.Bu_inv = np.linalg.inv( self.Bu.T@self.Bu )
+        self.Bu_inv = np.linalg.inv(self.Bu.T@self.Bu)
 
-        self.part_1 = self.Bu_inv@self.Bu.T@self.y_des
-        self.part_2 = self.Bu_inv@self.Bu.T@self.Ao
-        self.part_3 = self.Bu_inv@self.Bu.T@self.Bd
+        # self.part_1 = self.Bu_inv@self.Bu.T@self.y_des
+        # self.part_2 = self.Bu_inv@self.Bu.T@self.Ao
+        # self.part_3 = self.Bu_inv@self.Bu.T@self.Bd
+
+        self.part_1 = np.linalg.pinv(self.Bu)@self.y_des
+        self.part_2 = np.linalg.pinv(self.Bu)@self.Ao
+        self.part_3 = np.linalg.pinv(self.Bu)@self.Bd
         # self.part_4 = self.Bu_inv@self.Bu.T@self.Bdes@self.y_des_bar
     
     def get_Xi(self, h_in_left=100, h_in_right=100, nr_channel=1):
@@ -313,7 +317,7 @@ class Filter:
 
         self.Ao = Ao
         if (Bu_mode == 'calculation') or (self.dof == 3):
-            self.Bu = Bu
+            self.Bu = Bu@self.Get_delay_matrix(self.dim, self.delay)
         elif Bu_mode == 'from_file':
             ll = Bu.shape[0]
             path_file = '/home/hao/Desktop/Learning/data/psid_model/dof_' + str(self.dof)
@@ -321,12 +325,17 @@ class Filter:
             Bu_ = pickle.load(f)
             f.close()
             self.Bu = np.copy(Bu_[0:ll, 0:ll])
-            
+
         self.Bd = Bd
         self.Bdes = Bdes
         h_zero = np.tile(0, 1+self.delay+self.order_num).reshape(-1, 1)
         self.y_des_bar = np.vstack((h_zero, self.y_des[0:self.y_des.shape[0]-self.delay]))
         self.Xi = self.get_Xi(h_in_left=h, h_in_right=h, nr_channel=nr_channel)
+    
+    def Get_delay_matrix(self, dim, delay):
+        E = np.zeros((dim, dim))
+        E[delay:,0:(dim - delay)] = np.eye(dim - delay)
+        return E
 
     def GenerateGlobalMatrix_convex_MIMO(self, h=100, nr_channel=1, mode_name='pd', Bu_mode='calculation'):
         '''
@@ -366,15 +375,15 @@ class Filter:
         self.z0 = np.zeros((self.order_den+self.order_num, 1))          
             
         # shift d time points to the right
-        u = []
+        u = np.zeros((self.dim, 1))
         for i in range(self.dim):
             idx = i - self.delay
             if idx < 0:
-                u.append( 0 )
+                u[i] = 0.0
             else:
-                u.append(ff[idx])
+                u[i] = ff[idx]
 
-        self.u_bar = np.copy(np.array(u).reshape(-1, 1))
+        self.u_bar = u.copy()
 
     # def StepOptimization(self, y, y_out, d):
     #     y = y.reshape(-1, 1)
@@ -418,7 +427,7 @@ class Filter:
         y:     absolute real trajectory
         y - angle_initial = relative real trajectory
         '''
-        ff = LimitCheck(ff, self.dof)
+        # ff = LimitCheck(ff, self.dof)
 
         y = np.array( y ).reshape(-1, 1)
         y = y - self.angle_initial[self.dof]

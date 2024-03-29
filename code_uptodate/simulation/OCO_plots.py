@@ -6,7 +6,7 @@ import math
 import matplotlib.pyplot as plt
 import wandb
 
-def wandb_plot(i_iter, frequency, t_stamp, ff, fb, y, theta_, t_stamp_list, theta_list, T_go_list, p_int_record, obs_ago, obs_ant, des_ago, des_ant):
+def wandb_plot(i_iter, frequency, t_stamp, ff, fb, y, theta_, t_stamp_list, theta_list, T_go_list, p_int_record, obs_ago, obs_ant, des_ago, des_ant, SI_ref=None, disturbance=None):
     '''
     to plot the ff input, the fb input and the tracking performance in joint space
     '''
@@ -58,6 +58,9 @@ def wandb_plot(i_iter, frequency, t_stamp, ff, fb, y, theta_, t_stamp_list, thet
         line.append( line_temp )
         line_temp, = ax_position0.plot(t_stamp, theta_[0, :] * 180 / math.pi, linewidth=2, label=r'Pos_Dof0_des')
         line.append( line_temp )
+        if SI_ref is not None:
+            line_temp, = ax_position0.plot(t_stamp, SI_ref[0].reshape(-1) * 180 / math.pi, linewidth=1, linestyle=(0,(5,5)), label=r'Pos_Dof0_SI')
+            line.append( line_temp )
         for j in range(len(theta_list)):
             line_temp, = ax_position0.plot(t_stamp_list[j], theta_list[j][0, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,5)), label='Dof0_traj_candidate_'+str(j+1))
             line.append( line_temp )
@@ -73,6 +76,9 @@ def wandb_plot(i_iter, frequency, t_stamp, ff, fb, y, theta_, t_stamp_list, thet
         line.append( line_temp )
         line_temp, = ax_position1.plot(t_stamp, theta_[1, :] * 180 / math.pi, linewidth=2, label=r'Pos_Dof1_des')
         line.append( line_temp )
+        if SI_ref is not None:
+            line_temp, = ax_position1.plot(t_stamp, (SI_ref[1].reshape(-1) * 180 / math.pi +45), linewidth=1, linestyle=(0,(5,5)), label=r'Pos_Dof1_SI')
+            line.append( line_temp )
         for j in range(len(theta_list)):
             line_temp, = ax_position1.plot(t_stamp_list[j], theta_list[j][1, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,5)), label='Dof1_traj_candidate_'+str(j+1))
             line.append( line_temp )
@@ -88,6 +94,9 @@ def wandb_plot(i_iter, frequency, t_stamp, ff, fb, y, theta_, t_stamp_list, thet
         line.append( line_temp )
         line_temp, = ax_position2.plot(t_stamp, theta_[2, :] * 180 / math.pi, linewidth=2, label=r'Pos_Dof2_des')
         line.append( line_temp )
+        if SI_ref is not None:
+            line_temp, = ax_position2.plot(t_stamp, (SI_ref[2].reshape(-1) * 180 / math.pi + 40), linewidth=1, linestyle=(0,(5,5)), label=r'Pos_Dof2_SI')
+            line.append( line_temp )
         for j in range(len(theta_list)):
             line_temp, = ax_position2.plot(t_stamp_list[j], theta_list[j][2, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,5)), label='Dof2_traj_candidate_'+str(j+1))
             line.append( line_temp )
@@ -144,7 +153,38 @@ def wandb_plot(i_iter, frequency, t_stamp, ff, fb, y, theta_, t_stamp_list, thet
         plt.legend(handles=line, loc=legend_position, shadow=True)
 
         plt.suptitle('Pressures Monitoring'+' Iter '+str(i_iter+1))
-        plots.append(wandb.Image(plt, caption="matplotlib image"))                
+        plots.append(wandb.Image(plt, caption="matplotlib image"))
+
+        ### to see the learned disturbances in ILC
+        if disturbance is not None:
+            fig3 = plt.figure(figsize=(18, 18))
+
+            disturb0 = fig3.add_subplot(311)
+            plt.xlabel(r'Time $t$ in s')
+            plt.ylabel(r'Disturbance of Dof_0')
+            line = []
+            line_temp, = disturb0.plot(t_stamp, disturbance[0,:], linewidth=2, label=r'disturbance')
+            line.append( line_temp )
+            plt.legend(handles=line, loc=legend_position, shadow=True)       
+
+            disturb1 = fig3.add_subplot(312)
+            plt.xlabel(r'Time $t$ in s')
+            plt.ylabel(r'Disturbance of Dof_1')
+            line = []
+            line_temp, = disturb1.plot(t_stamp, disturbance[1,:], linewidth=2, label=r'disturbance')
+            line.append( line_temp )
+            plt.legend(handles=line, loc=legend_position, shadow=True)      
+
+            disturb2 = fig3.add_subplot(313)
+            plt.xlabel(r'Time $t$ in s')
+            plt.ylabel(r'Disturbance of Dof_2')
+            line = []
+            line_temp, = disturb2.plot(t_stamp, disturbance[2,:], linewidth=2, label=r'disturbance')
+            line.append( line_temp )
+            plt.legend(handles=line, loc=legend_position, shadow=True)
+
+            plt.suptitle('Disturbance Visualization'+' Iter '+str(i_iter+1))
+            plots.append(wandb.Image(plt, caption="matplotlib image"))                 
         
         wandb.log({'related plots': plots})
         plt.close()

@@ -429,6 +429,7 @@ class RobotGeometry:
         (_, p_target) = self.AngleToEnd(target[0:3], frame='Cylinder')  # theta1, r, h
 
         vel = random.randrange(20, 50)/10
+        # print('desired interpetion vel. is: {}'.format(vel))
         if p_target[0]<=0:
             v_target = np.array([vel/p_target[1], 0, 0])
         else:

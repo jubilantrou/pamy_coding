@@ -13,6 +13,8 @@ from threading import Thread
 import multiprocessing as mp
 from FastLCNN import LCNN
 import torch
+import scipy
+from OCO_plots import *
 
 class Robot:
     def __init__(self, frontend, dof_list, model_num, model_den,
@@ -105,6 +107,12 @@ class Robot:
         #                                       [-7040,  0, -733.04],
         #                                       [-12080,  0, -419.78],
         #                                       [0,  0, 0]]) # PD for the real robot
+        self.m_4_y = 2
+        self.n_4_u = 2
+        # self.lqr_k = np.squeeze(scipy.io.loadmat('/home/mtian/Desktop/lqr_K.mat')['K'])
+        self.lqi_k = scipy.io.loadmat('/home/mtian/Desktop/K_i.mat')['K_i']
+        self.lqr_k = scipy.io.loadmat('/home/mtian/Desktop/lqr_K.mat')['K_inf']
+        # NN
         # NN
         self.A_list = A_list 
         self.A_bias = A_bias
@@ -181,8 +189,9 @@ class Robot:
         for dof in self.dof_list:
             O = Filter(dof, self.y_desired[dof, :], self.v_desired[dof, :], self.a_desired[dof, :], self.j_desired[dof, :], self.y_desired.shape[1],
                        self.pressure_min[dof], self.pressure_max[dof], self.model_num[dof, :], self.model_den[dof, :],
-                       self.model_num_order[dof], self.model_den_order[dof], self.model_ndelay_list[dof], angle_initial)                                    
-            O.GenerateGlobalMatrix_convex_MIMO(h=h, nr_channel=nr_channel, mode_name=mode_name, Bu_mode=Bu_mode)
+                       self.model_num_order[dof], self.model_den_order[dof], self.model_ndelay_list[dof], angle_initial)
+            # TODO                                    
+            O.GenerateGlobalMatrix_convex(h=h, nr_channel=nr_channel, mode_name=mode_name, Bu_mode=Bu_mode)
             self.O_list.append(O)
 
             # if learning_mode == 'u':
@@ -298,7 +307,7 @@ class Robot:
 
         iteration = iteration_begin
 
-        self.frontend.add_command(pressure_ago, pressure_ant,
+        self.frontend.add_command(self.anchor_ago_list, self.anchor_ant_list,
                                   o80.Iteration(iteration_begin-1),
                                   o80.Mode.QUEUE)
         
@@ -600,17 +609,186 @@ class Robot:
         
         time = time-time[0]
         return time, input, position
+    
+    def LQRTesting(self, amp, t_start, t_duration, frequency_frontend=100, frequency_backend=500):
+        lqr = np.copy( self.lqi_k )
+        m = self.m_4_y
+        n = self.n_4_u
+
+        period_backend = 1.0 / frequency_backend
+        period_frontend = 1.0 / frequency_frontend
+        t = 1 / frequency_frontend
+        iterations_per_command = int( period_frontend / period_backend )
+
+        # self.PressureInitialization()
+
+        iteration = self.frontend.latest().get_iteration() + 500
+        iteration_begin = iteration
+        self.frontend.add_command(self.anchor_ago_list, self.anchor_ant_list,
+                                  o80.Iteration(iteration-iterations_per_command),
+                                  o80.Mode.QUEUE)
+        obs_begin = self.frontend.pulse_and_wait()
+        theta = np.array(obs_begin.get_positions())
+        theta_begin = np.copy(theta)
+
+        amp = np.array([[0],[45],[40]])/180*math.pi - theta_begin.reshape(4,1)[0:3]
+
+        count = 0
+        input = np.array([])
+        compute_diff = np.array([])
+        x_in = np.zeros((3*(m+n),1))
+        x_e = 0.01*(amp - x_in[(3*m-3):3*m])
+        cur_states = [0.0] * (3*m)
+        delta_pressures = [0.0] * (3*n)
+        while count < t_duration*frequency_frontend:
+            if count < t_start*frequency_frontend:
+                target = theta_begin.reshape(-1)[0:3]
+            else:
+                target = theta_begin.reshape(-1)[0:3] + amp.reshape(-1)
+            input = np.append(input, target.reshape(-1))
+
+            x_aug = np.concatenate((x_in,x_e),axis=0)
+            feedback = -lqr@x_aug
+            compute_diff = np.append(compute_diff, feedback.reshape(-1))
+            
+            pressure_ago = [int(self.anchor_ago_list[i]+feedback[i,0]) if i<3 else self.anchor_ago_list[i] for i in self.dof_list]
+            pressure_ant = [int(self.anchor_ant_list[i]-feedback[i,0]) if i<3 else self.anchor_ant_list[i] for i in self.dof_list]
+            
+            self.frontend.add_command(pressure_ago, pressure_ant,
+                                      o80.Iteration(iteration),
+                                      o80.Mode.QUEUE)    
+            self.frontend.pulse()
+            self.frontend.add_command(pressure_ago, pressure_ant,
+                                      o80.Iteration(iteration + iterations_per_command - 1),
+                                      o80.Mode.QUEUE)
+            observation = self.frontend.pulse_and_wait()
+
+            theta = np.array(observation.get_positions())
+            iteration += iterations_per_command
+            count += 1
+            
+            update_states = theta.reshape(-1)-theta_begin.reshape(-1)
+            [cur_states.append(update_states.tolist()[i]) for i in range(3)]
+            [cur_states.pop(0) for i in range(3)]
+            [delta_pressures.append(feedback.reshape(-1).tolist()[i]) for i in range(3)]
+            [delta_pressures.pop(0) for i in range(3)]
+            x_in = np.concatenate((np.array(cur_states).reshape(3*m,1),np.array(delta_pressures).reshape(3*n,1)),axis=0)
+            x_e = x_e + 0.01*(amp - x_in[(3*m-3):3*m])
+
+        iteration_end = iteration
+            
+        time = np.array([])
+        position = np.array([])
+
+        iteration = iteration_begin
+        while iteration < iteration_end:
+            observation = self.frontend.read(iteration)
+            obs_position = np.array( observation.get_positions() )
+            obs_time = np.array( observation.get_time_stamp() )*1e-9
+
+            position = np.append(position, obs_position.reshape(-1)[0:3])
+            time = np.append(time, obs_time)
+
+            iteration += iterations_per_command
         
-    def ILC(self, number_iteration, GLOBAL_INITIAL, mode_name='none'):
+        time = time-time[0]
+        
+        return time, input, position, compute_diff, theta_begin.reshape(-1)
+    
+    def LQRTestingFollowup(self, tar, t_duration, frequency_frontend=100, frequency_backend=500):
+        lqr = np.copy( self.lqr_k )
+        m = self.m_4_y
+        n = self.n_4_u
+
+        period_backend = 1.0 / frequency_backend
+        period_frontend = 1.0 / frequency_frontend
+        t = 1 / frequency_frontend
+        iterations_per_command = int( period_frontend / period_backend )
+
+        iteration = self.frontend.latest().get_iteration() + 500
+        iteration_begin = iteration
+        pressure_read = np.array(self.frontend.latest().get_observed_pressures())
+        self.frontend.add_command(pressure_read[:,0], pressure_read[:,1],
+                                  o80.Iteration(iteration-iterations_per_command),
+                                  o80.Mode.QUEUE)
+        obs_begin = self.frontend.pulse_and_wait()
+        theta = np.array(obs_begin.get_positions())
+
+        count = 0
+        input = np.array([])
+        compute_diff = np.array([])
+
+        cur_states = [0.0] * (3*m)
+        delta_pressures = [0.0] * (3*n)
+        cur_states[(3*m-3):3*m] = (theta.reshape(-1)-tar).tolist()[0:3]
+        delta_pressures[(3*n-3):3*n] = (pressure_read[:,0].reshape(-1)-self.anchor_ago_list).tolist()[0:3]
+        x_in = np.concatenate((np.array(cur_states).reshape(3*m,1),np.array(delta_pressures).reshape(3*n,1)),axis=0)
+
+        while count < t_duration*frequency_frontend:
+            print(count)
+
+            target = tar[0:3]
+            input = np.append(input, target.reshape(-1))
+
+            feedback = -lqr@x_in
+            compute_diff = np.append(compute_diff, feedback.reshape(-1))
+            print(x_in)
+            print(feedback)
+            
+            pressure_ago = [int(self.anchor_ago_list[i]+feedback[i,0]) if i<3 else self.anchor_ago_list[i] for i in self.dof_list]
+            pressure_ant = [int(self.anchor_ant_list[i]-feedback[i,0]) if i<3 else self.anchor_ant_list[i] for i in self.dof_list]
+            
+            self.frontend.add_command(pressure_ago, pressure_ant,
+                                      o80.Iteration(iteration),
+                                      o80.Mode.QUEUE)    
+            self.frontend.pulse()
+            self.frontend.add_command(pressure_ago, pressure_ant,
+                                      o80.Iteration(iteration + iterations_per_command - 1),
+                                      o80.Mode.QUEUE)
+            observation = self.frontend.pulse_and_wait()
+
+            theta = np.array(observation.get_positions())
+            iteration += iterations_per_command
+            count += 1
+            
+            update_states = theta.reshape(-1)-tar
+            [cur_states.append(update_states.tolist()[i]) for i in range(3)]
+            [cur_states.pop(0) for i in range(3)]
+            [delta_pressures.append(feedback.reshape(-1).tolist()[i]) for i in range(3)]
+            [delta_pressures.pop(0) for i in range(3)]
+            x_in = np.concatenate((np.array(cur_states).reshape(3*m,1),np.array(delta_pressures).reshape(3*n,1)),axis=0)
+
+        iteration_end = iteration
+            
+        time = np.array([])
+        position = np.array([])
+
+        iteration = iteration_begin
+        while iteration < iteration_end:
+            observation = self.frontend.read(iteration)
+            obs_position = np.array( observation.get_positions() )
+            obs_time = np.array( observation.get_time_stamp() )*1e-9
+
+            position = np.append(position, obs_position.reshape(-1)[0:3])
+            time = np.append(time, obs_time)
+
+            iteration += iterations_per_command
+        
+        time = time-time[0]
+        
+        return time, input, position, compute_diff
+
+    def ILC(self, number_iteration, GLOBAL_INITIAL, mode_name='none', ref_traj=None):
         '''
         only get the feedforward control without exciting the simulation/real system
         u is the basic presssure and ff is the feedforward control
         dimensions of u_ago, u_ant and ff are all dofs * length
         '''
         (u_ago, u_ant, ff) = self.Feedforward(self.y_desired)
+        ff = np.zeros(ff.shape)
         # avoid too aggressive motion in the first iteration
         # ff = 0.1 * ff
-        # %% only feedforward is used when do ILC
+        # only feedforward is used when do ILC
         mode_name_list = ["ff", "ff", "ff", "ff"]
         # generate the initial state z0 and the shifted control input
         # generate the initial disturbance
@@ -656,7 +834,7 @@ class Robot:
             y is the absolute measured angle
             ''' 
             print("Begin to measure...")
-            (y, fb, obs_ago, obs_ant) = self.Control(self.y_desired, mode_name_list=mode_name_list, 
+            (y, fb, obs_ago, obs_ant, des_ago, des_ant, _) = self.Control(self.y_desired, mode_name_list=mode_name_list, 
                                                      ifplot="no", u_ago=u_ago, u_ant=u_ant, 
                                                      ff=ff, echo="yes",
                                                      controller='pd' )
@@ -686,6 +864,11 @@ class Robot:
                 P_list[dof] = np.copy( P_temp )
             print("...optimization completed")
 
+            t_stamp = np.linspace(0, (y.shape[1]-1)*0.01, y.shape[1], endpoint = True)
+            y_ = y - y[:,0].reshape(-1,1) + ref_traj[:,0].reshape(-1,1)
+            wandb_plot(i_iter=i, frequency=1, t_stamp=t_stamp, ff=ff, fb=fb, y=y_, theta_=ref_traj, t_stamp_list=[], theta_list=[], T_go_list=[], p_int_record=[], 
+                   obs_ago=obs_ago, obs_ant=obs_ant, des_ago=des_ago, des_ant=des_ant, SI_ref = None, disturbance=disturbance)
+
             # record all the results of each iteration
             fb_history.append(np.copy(fb))
             ago_history.append(np.copy(obs_ago))
@@ -698,7 +881,8 @@ class Robot:
 
             # set the same initial angle for the next iteration
             print("Begin to initialize...")
-            self.AngleInitialization(GLOBAL_INITIAL)
+            # self.AngleInitialization(GLOBAL_INITIAL)
+            (ig_t, ig_step, ig_position, ig_diff, ig_theta_zero) = self.LQRTesting(amp = np.array([[30], [30], [30]])/180*math.pi, t_start = 0.0, t_duration = 6.0)
             self.PressureInitialization()
             print("...initialization completed")
 
@@ -708,14 +892,16 @@ class Robot:
                                         controller='pd' )
             
             repeated.append(np.copy(y))
-            self.AngleInitialization(GLOBAL_INITIAL)
+            # self.AngleInitialization(GLOBAL_INITIAL)
+            (ig_t, ig_step, ig_position, ig_diff, ig_theta_zero) = self.LQRTesting(amp = np.array([[30], [30], [30]])/180*math.pi, t_start = 0.0, t_duration = 6.0)
             self.PressureInitialization()
 
         mode_name_list = ['ff+fb', 'ff+fb', 'ff+fb', 'ff+fb']
         (y_pid, _, _, _) = self.Control(self.y_desired, mode_name_list=mode_name_list, 
                                         ifplot="no", u_ago=u_ago, u_ant=u_ant, ff=ff, echo="yes", 
                                         controller='pd' )
-        self.AngleInitialization(GLOBAL_INITIAL)
+        # self.AngleInitialization(GLOBAL_INITIAL)
+        (ig_t, ig_step, ig_position, ig_diff, ig_theta_zero) = self.LQRTesting(amp = np.array([[30], [30], [30]])/180*math.pi, t_start = 0.0, t_duration = 6.0)
         self.PressureInitialization()
 
         return(y_history, repeated, ff_history, disturbance_history, P_history, d_lifted_history, P_lifted_history, fb_history, ago_history, ant_history, y_pid)

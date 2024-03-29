@@ -33,7 +33,7 @@ def get_random():
     t = random.randrange(90, 100)/100
     theta = np.zeros(3)
     theta[0] = random.choice([random.randrange(-900, -450)/10, random.randrange(450, 900)/10])
-    theta[1] = random.randrange(150, 750)/10
+    theta[1] = random.randrange(450, 800)/10
     theta[2] = random.randrange(150, 750)/10
     theta = theta * math.pi/180
     return (t, theta)
@@ -143,20 +143,21 @@ def get_dataset(datapoints, batch_size):
 
     return dataset
 
-def get_prediction(datapoints, block_list, Nt):
+def get_prediction(datapoints, block_list):
     '''
     to get the trainable feedforward contorl inputs by feeding datapoints from the reference trajectory into the trainable feedforward contorl policy
 
     Args:
         datapoints: extracted datapoints from the reference trajectory
         block_list: a list of networks for the trainable control policies
-        Nt: the number of time steps
     Returns:
         u: the trainble feedforward control inputs
     '''
+    Nt = len(datapoints)
     dataset = get_dataset(datapoints=datapoints, batch_size=Nt)
     u = np.zeros((3, Nt))
-    for dof,block in enumerate(block_list):
+
+    for dof, block in enumerate(block_list):
         if block is None:
             continue
         else:
@@ -165,27 +166,31 @@ def get_prediction(datapoints, block_list, Nt):
                 u_temp = block(dataset[0]).cpu().detach().numpy()
             except:
                 u_temp = block(dataset[0].float()).cpu().detach().numpy()
-            # SISO: seperate networks for different DoF
+            # SISO: there are seperate networks for different DoFs
             if u_temp.shape[1] == 1:
                 u[dof, :] = u_temp.flatten()
-            # MIMO: one network for all DoFs
+            # MIMO: there is only one network for all DoFs
             elif u_temp.shape[1] == 3:
                 u = u_temp.T
+    
     return u
 
-# TODO: mark to continue reformatting
-def get_grads_list(dataset, block_list, additional=False):
+def get_par_pai_par_w_list(datapoints, block_list):
     '''
-    3*Nt x nff
-    to get needed gradient information related to trainable control policies, par_paiff_par_wff for feedforward case
-    '''
-    X_list = []
-    Y_list = []
+    to get needed gradient information, i.e. par_pai_par_w, related to the trainable control policies
 
-    for idx,block in enumerate(block_list):
+    Args:
+        datapoints: extracted datapoints from the reference trajectory
+        block_list: a list of networks for the trainable control policies
+    Returns:
+        pay_pai_par_w_list: a list of gradient information about par_pai_par_w for the trainable control policies
+    '''
+    dataset = get_dataset(datapoints=datapoints, batch_size=1)
+    par_pai_par_w_list = []
+
+    for idx, block in enumerate(block_list):
         if block is None:
-            X_list.append(None)
-            Y_list.append(None)
+            par_pai_par_w_list.append(None)
             continue
 
         block.train()
@@ -195,32 +200,37 @@ def get_grads_list(dataset, block_list, additional=False):
             param.grad.zero_()
 
         flag = True
-        if len(dataset)==1:
-            chosen_dataset = dataset[0]
-        else:
-            chosen_dataset = dataset[idx]
-
-        for data in chosen_dataset:
+        for data in dataset:
             grad = []
+         
+            try:
+                pai_temp = block(data.float())
+            except:
+                pai_temp = block(data)
+            out_dim = pai_temp.shape[1]
             
-            for ele in range(3):
-                try:
-                    # block(data.float()).mean().backward()
-                    block(data.float())[0,ele].backward()
-                except:
-                    # block(data).mean().backward()
-                    block(data)[0,ele].backward()                       
+            for idx_out in range(out_dim):
+                # SISO: there are seperate blocks and each of them outputs 1-dim control input
+                if out_dim == 1:
+                    pai_temp.mean().backward
+                # MIMO: there is only one block and it outputs 3-dim control inputs
+                elif out_dim == 3:
+                    pai_temp[0, idx_out].backward()
+                else:
+                    raise ValueError("Something is wrong with the output dimension of the block.")
                 for param in block.parameters():
                     grad.append(torch.clone(param.grad.cpu().view(-1)))
                     param.grad.zero_()
 
-            grads = torch.cat(grad)            
-            grads_ = np.copy(grads.reshape(3, -1)) if flag else np.concatenate((grads_, grads.reshape(3, -1)), axis=0)
-            flag = False if flag else False
+            grad_ele = torch.cat(grad)
+            
+            grads = np.copy(grad_ele.reshape(out_dim, -1)) if flag else np.concatenate((grads, grad_ele.reshape(out_dim, -1)), axis=0)
+            flag = False
 
-        X_list.append(grads_)
+        # the dim of par_pai_par_w: out_dim*len(datapoints) x the number of trainable parameters
+        par_pai_par_w_list.append(grads)
 
-    return X_list
+    return par_pai_par_w_list
 
 def get_grads_list_fb(dataset, block_list, additional=False):
     '''

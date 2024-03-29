@@ -13,7 +13,7 @@ class CNN(nn.Module):
     def __init__(self, channel_in, height, width, filter_size):     
         super(CNN, self).__init__()
 
-        l = height # 201
+        l = height # 121
 
         self.conv1 = nn.Sequential(  nn.Conv2d( in_channels=channel_in,
                                                 out_channels=3*channel_in,
@@ -23,7 +23,7 @@ class CNN(nn.Module):
                                                 bias=True),
                                      nn.ReLU()
                                   )
-        l = (l - filter_size + 1) # 171
+        l = (l - filter_size + 1) # 91
 
         self.conv2 = nn.Sequential(  nn.Conv2d( in_channels=3*channel_in,
                                                 out_channels=3*channel_in,
@@ -34,7 +34,7 @@ class CNN(nn.Module):
                                      nn.ReLU()
 
                                    )
-        l = (l - filter_size + 1) # 141
+        l = (l - filter_size + 1) # 61
 
         self.conv3 = nn.Sequential(  nn.Conv2d( in_channels=3*channel_in,
                                                 out_channels=channel_in,
@@ -45,11 +45,11 @@ class CNN(nn.Module):
                                      nn.ReLU()
 
                                    )
-        l = (l - filter_size + 1) # 111
+        l = (l - filter_size + 1) # 31
 
-        self.fc = nn.Sequential(  nn.Linear( channel_in*l*1, 32, bias=True),    
+        self.fc = nn.Sequential(  nn.Linear( channel_in*l*1, 16, bias=False),    
                                   nn.ReLU(),    
-                                  nn.Linear( 32, 1, bias=True), 
+                                  nn.Linear( 16, 1, bias=False), 
                                   # nn.Tanh(),
                                 )
         
@@ -72,8 +72,9 @@ class FCN(nn.Module):
 
         self.fc = nn.Sequential(  nn.Linear( channel_in*height*width, hidden_size[0], bias=True),    
                                   nn.ReLU(),
-                                  nn.Linear( hidden_size[0], hidden_size[0], bias=True),    
-                                  nn.ReLU(),     
+                                  # TODO
+                                #   nn.Linear( hidden_size[0], hidden_size[1], bias=True),    
+                                #   nn.ReLU(),     
                                   nn.Linear( hidden_size[0], out_size, bias=True), 
                                   # nn.Tanh(),
                                 )

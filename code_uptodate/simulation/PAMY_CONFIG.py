@@ -2,37 +2,32 @@
 This script is used to store the configuration information of 
 the simulator and the real robot.
 '''
+# TODO: need to be rewritten as a Class for convenience
 # %%
 import numpy as np
 from RealRobot import Robot
-from RealRobotGeometry import RobotGeometry
-import pickle5 as pickle
 import math
 
 # %%
-obj = 'real'
-
-# %%
-'''
-The initial posture of pamy.
-All the values are absolute values in angular space in rad.
-'''
-if obj=='sim':
-    GLOBAL_INITIAL = np.array([0, 0.8, 0, 0])
-elif obj=='real':
-    GLOBAL_INITIAL = np.array([0, 45/180*math.pi, 40/180*math.pi, 0])
-
-# %%
 def FulfillZeros( a ):
-    b = np.zeros(  [len(a), len(max(a, key = lambda x: len(x)))]  )
+    b = np.zeros( [len(a), len(max(a, key = lambda x: len(x)))] )
     for i,j in enumerate(a):
         b[i][0:len(j)] = j
     return b
 
 # %%
+obj = 'real'
+
+# All the values are absolute values in angular space in rad.
+if obj=='sim':
+    GLOBAL_INITIAL = np.array([0, 0.8, 0, 0])
+elif obj=='real':
+    GLOBAL_INITIAL = np.array([0, 60/180*math.pi, 40/180*math.pi, 0]) # adapted from np.array([0, 45/180*math.pi, 40/180*math.pi, 0])
+
+# %%
 '''
-All the necessary parameters that used to built the model and
-inverse model of Pamy.
+There are all the necessary parameters that used to built 
+the model and the inverse model of Pamy.
 '''
 # ----------------------------------------------------------------------------------------------------------------
 '''
@@ -53,7 +48,6 @@ frequency range:     [0, 10]
 # inverse_model_den = FulfillZeros( inverse_model_den )
 
 # ndelay_list = np.array([2, 2, 3, 1])
-
 # order_num_list = np.array([3, 3, 2, 1])
 # order_den_list = np.array([3, 3, 2, 1])
 
@@ -70,9 +64,9 @@ frequency range:     [0, 10]
 #              [1.000000000000000, -0.995558554204924                                       ]]
 # model_den = FulfillZeros( model_den )   
 
+# model_ndelay_list = [2, 2, 3, 1]
 # model_num_order   = [3, 3, 2, 1]
 # model_den_order   = [3, 3, 2, 1]
-# model_ndelay_list = [2, 2, 3, 1]
 
 # anchor_ago_list = np.array([17500, 18500, 16000, 15000])
 # anchor_ant_list = np.array([17500, 18500, 16000, 15000])
@@ -80,7 +74,7 @@ frequency range:     [0, 10]
 
 # ----------------------------------------------------------------------------------------------------------------
 '''
-!!!!! Previously Used Parameters Before Modification !!!!!
+!!!!! Previously Used Parameters Before Starting Trying Online Learning !!!!!
 identification data: 10.10.2022
 identification mode: ff
 frequency range:     [0, 4]
@@ -253,7 +247,7 @@ frequency range:     [0, 3]
 obj:                 real
 '''
 if obj=='real':
-    ### inverse part: still copied value, not changed yet
+    ### the inverse model part: still copied value, not changed yet
     inverse_model_num = [[-1.957403439384016e05,     3.824768202060075e05,    -1.881538753796024e05],
                         [ 0.720071938819735e17,    -1.406797868487910e17,     0.689485753258883e17],
                         [ 0.458297541661016e08,    -1.244466547878559e08,     1.140090083613778e08,    -0.352040169678436e08],
@@ -270,7 +264,7 @@ if obj=='real':
     order_num_list = np.array([2, 2, 3, 2])
     order_den_list = np.array([2, 2, 3, 2])
 
-    ### changed except for dof4
+    ### the model part: changed values except for DoF 4
     model_num = [[-1.62821090e-05,  5.20528029e-05, -5.78388629e-05,  2.20054137e-05],
                  [-1.32219578e-07,	1.71515844e-07,	-9.67963259e-08],
                  [ 4.07662060e-05, -9.00690473e-05,	 4.85621442e-05],
@@ -288,6 +282,7 @@ if obj=='real':
     model_den_order   = [3, 3, 2, 2]
 # ----------------------------------------------------------------------------------------------------------------
 
+# %%
 dof_list = [0, 1, 2, 3]
 
 if obj=='sim':
@@ -297,19 +292,14 @@ if obj=='sim':
     ago_max_list = np.array([24900, 21400, 20900, 18900])
     ant_min_list = np.array([16000, 16000, 13000, 13000])
     ant_max_list = np.array([24900, 24900, 20900, 21800])
-
 elif obj=='real':
-    ### for the real robot, the anchor pressures need to be changed time to time due to multiple influence factors
-    # anchor_ago_list = np.array([21000, 16500, 13250, 17000])
-    # anchor_ant_list = np.array([20000, 14000, 14500, 17000])
-
     anchor_ago_list = np.array([20500, 22000, 13850, 17000])
     anchor_ant_list = np.array([20500, 20000, 13850, 17000])
-
-    ago_min_list = np.array([15000, 17000, 9850, 13000])
-    ago_max_list = np.array([26000, 27000, 17850, 19000])
-    ant_min_list = np.array([15000, 15000, 9850, 13000])
-    ant_max_list = np.array([26000, 25000, 17850, 21900])
+    # TODO: need to be in accordance with LimitCheck.py and pam.json for the real robot
+    ago_min_list = np.array([12000, 14000, 8850,  13000])
+    ago_max_list = np.array([29000, 30000, 18850, 19000])
+    ant_min_list = np.array([12000, 12000, 8850,  13000])
+    ant_max_list = np.array([29000, 28000, 18850, 21900])
 
 ago_pressure_max = ago_max_list - anchor_ago_list
 ago_pressure_min = ago_min_list - anchor_ago_list
@@ -330,16 +320,12 @@ if obj=='sim':
     pid_list = np.array([[-8368.8*0.8,  -66950.4*0.8*0.8, -261.525],
                          [-12000*0.6,  -51200*0.5, -703.125*0.75],
                          [-16500,  -195200*0.2, -429*1.75],
-                         [-13800*0.85, -50468*0.5, -943]]) # tuned PID for the simulator
+                         [-13800*0.85, -50468*0.5, -943]])
 elif obj=='real':
-    # pid_list = np.array([[-5250,  -25079.32, -412.13],
-    #                      [-5250,  -14940.40*0.8, -532.28],
-    #                      [-2830,  -12767.88*0.7, -414.00],
-    #                      [-4140,  -44000, -150.25]]) # tuned PID for real robot
     pid_list = np.array([[-3315,  -13260, -207.1875],
                          [-3400,  -9320.65, -473.34],
                          [-2718,  -19553.96, -249.349],
-                         [-4140,  -44000, -150.25]]) # tuned PID for real robot
+                         [-4140,  -44000, -150.25]])
 pid_list = FulfillZeros( pid_list )
 
 delta_d_list   = np.array([1e-8, 1e-10, 1e-8, 1e-9]) 
@@ -361,14 +347,11 @@ weight_list = [(1.0, 1.0),
 #                (0.0, 0.0)]
 
 # %%
-'''
-Build the robot model
-'''
 def build_pamy(frontend=None):
-    Pamy = Robot(frontend, dof_list, model_num, model_den,
-                model_num_order, model_den_order, model_ndelay_list,
-                inverse_model_num, inverse_model_den, order_num_list, order_den_list,
-                ndelay_list, anchor_ago_list, anchor_ant_list, strategy_list, pid_list,
+    Pamy = Robot(frontend, dof_list, 
+                model_num, model_den, model_num_order, model_den_order, model_ndelay_list,
+                inverse_model_num, inverse_model_den, order_num_list, order_den_list, ndelay_list, 
+                anchor_ago_list, anchor_ant_list, strategy_list, pid_list,
                 delta_d_list, delta_y_list, delta_w_list, delta_ini_list,
                 pressure_min, pressure_max, weight_list)
     return Pamy

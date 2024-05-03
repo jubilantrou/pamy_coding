@@ -6,7 +6,8 @@ import math
 import matplotlib.pyplot as plt
 import wandb
 
-def wandb_plot(i_iter, frequency, t_stamp, ff, fb, y, theta_, t_stamp_list, theta_list, T_go_list, p_int_record, obs_ago, obs_ant, des_ago, des_ant, SI_ref=None, disturbance=None):
+def wandb_plot(i_iter, frequency, t_stamp, ff, fb, y, theta_, t_stamp_list, theta_list, T_go_list, p_int_record, obs_ago, obs_ant, des_ago, des_ant, SI_ref=None, disturbance=None, 
+               end_ref=None, end_real=None):
     '''
     to plot the ff input, the fb input and the tracking performance in joint space
     '''
@@ -184,7 +185,61 @@ def wandb_plot(i_iter, frequency, t_stamp, ff, fb, y, theta_, t_stamp_list, thet
             plt.legend(handles=line, loc=legend_position, shadow=True)
 
             plt.suptitle('Disturbance Visualization'+' Iter '+str(i_iter+1))
-            plots.append(wandb.Image(plt, caption="matplotlib image"))                 
+            plots.append(wandb.Image(plt, caption="matplotlib image"))   
+
+        ### to see the tracking performance in the Cartesian framework
+        if end_ref is not None:
+            fig4 = plt.figure(figsize=(18, 18))
+            temp_idx = int(T_go_list[-1]*100)
+
+            end0 = fig4.add_subplot(311)
+            plt.xlabel(r'Time $t$ in s')
+            plt.ylabel(r'X Position of the Racket')
+            line = []
+            line_temp, = end0.plot(t_stamp, end_ref[0,:], linewidth=2, label=r'end_des')
+            line.append( line_temp )
+            line_temp, = end0.plot(t_stamp, end_real[0,:], linewidth=2, label=r'end_out')
+            line.append( line_temp )           
+            line_temp, = end0.plot(T_go_list[-1], end_ref[0,temp_idx], 'o', label='target')
+            line.append( line_temp )
+            plt.legend(handles=line, loc=legend_position, shadow=True)   
+
+            end1 = fig4.add_subplot(312)
+            plt.xlabel(r'Time $t$ in s')
+            plt.ylabel(r'Y Position of the Racket')
+            line = []
+            line_temp, = end1.plot(t_stamp, end_ref[1,:], linewidth=2, label=r'end_des')
+            line.append( line_temp )
+            line_temp, = end1.plot(t_stamp, end_real[1,:], linewidth=2, label=r'end_out')
+            line.append( line_temp )
+            line_temp, = end1.plot(T_go_list[-1], end_ref[1,temp_idx], 'o', label='target')
+            line.append( line_temp )
+            plt.legend(handles=line, loc=legend_position, shadow=True)      
+
+            end2 = fig4.add_subplot(313)
+            plt.xlabel(r'Time $t$ in s')
+            plt.ylabel(r'Z Position of the Racket')
+            line = []
+            line_temp, = end2.plot(t_stamp, end_ref[2,:], linewidth=2, label=r'end_des')
+            line.append( line_temp )
+            line_temp, = end2.plot(t_stamp, end_real[2,:], linewidth=2, label=r'end_out')
+            line.append( line_temp )
+            line_temp, = end2.plot(T_go_list[-1], end_ref[2,temp_idx], 'o', label='target')
+            line.append( line_temp )
+            plt.legend(handles=line, loc=legend_position, shadow=True) 
+
+            plt.suptitle('End Effector Trajectory Tracking Performance'+' Iter '+str(i_iter+1))
+            plots.append(wandb.Image(plt, caption="matplotlib image"))
+
+            loss_x = abs(end_ref[0,temp_idx]-end_real[0,temp_idx])
+            loss_y = abs(end_ref[1,temp_idx]-end_real[1,temp_idx])
+            loss_z = abs(end_ref[2,temp_idx]-end_real[2,temp_idx])
+            print('losses in the Cartesian space (cm):')
+            print('x position: {}'.format(loss_x*100))
+            print('y position: {}'.format(loss_y*100))
+            print('z position: {}'.format(loss_z*100))             
         
-        wandb.log({'related plots': plots})
-        plt.close()
+        # wandb.log({'related plots': plots})
+        plt.close('all')
+        
+        return plots

@@ -16,10 +16,10 @@ anchor = [17500 18500 16000 15000]
 anchor_ago_list = np.array([20500, 22000, 13850, 17000])
 anchor_ant_list = np.array([20500, 20000, 13850, 17000])
 
-ago_min_list = np.array([15000, 17000, 9850, 13000])
-ago_max_list = np.array([26000, 27000, 17850, 19000])
-ant_min_list = np.array([15000, 15000, 9850, 13000])
-ant_max_list = np.array([26000, 25000, 17850, 21900])
+ago_min_list = np.array([12000, 14000, 8850, 13000])
+ago_max_list = np.array([29000, 30000, 18850, 19000])
+ant_min_list = np.array([12000, 12000, 8850, 13000])
+ant_max_list = np.array([29000, 28000, 18850, 21900])
 
 limit_max = ago_max_list - anchor_ago_list
 limit_min = ago_min_list - anchor_ago_list

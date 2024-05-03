@@ -15,6 +15,8 @@ from FastLCNN import LCNN
 import torch
 import scipy
 from OCO_plots import *
+import PAMY_CONFIG
+from RealRobotGeometry import RobotGeometry
 
 class Robot:
     def __init__(self, frontend, dof_list, model_num, model_den,
@@ -111,6 +113,7 @@ class Robot:
         self.n_4_u = 2
         # self.lqr_k = np.squeeze(scipy.io.loadmat('/home/mtian/Desktop/lqr_K.mat')['K'])
         self.lqi_k = scipy.io.loadmat('/home/mtian/Desktop/K_i.mat')['K_i']
+        self.lqi_k_tracking = scipy.io.loadmat('/home/mtian/Desktop/K_i_tracking.mat')['K_i']
         self.lqr_k = scipy.io.loadmat('/home/mtian/Desktop/lqr_K.mat')['K_inf']
         # NN
         # NN
@@ -271,13 +274,13 @@ class Robot:
         # read the actual current states
         theta = self.frontend.latest().get_positions()
         theta = np.array( theta )
-        theta_dot = self.frontend.latest().get_velocities()
-        theta_dot = np.array( theta_dot )
-        pressures = self.frontend.latest().get_observed_pressures()
-        pressures = np.array( pressures )
+        # theta_dot = self.frontend.latest().get_velocities()
+        # theta_dot = np.array( theta_dot )
+        # pressures = self.frontend.latest().get_observed_pressures()
+        # pressures = np.array( pressures )
         # the actual ago pressures and ant pressures
-        pressure_ago = pressures[:, 0]
-        pressure_ant = pressures[:, 1]
+        # pressure_ago = pressures[:, 0]
+        # pressure_ant = pressures[:, 1]
         # reference trajectory or absolute trajectory
         # reference trajectory for tracking 
         # absolute trajectory for initial posture
@@ -313,10 +316,42 @@ class Robot:
         
         self.frontend.pulse()
 
+        # theta = self.frontend.latest().get_positions()
+        # theta = np.array( theta )
+        # if mode_trajectory == "ref":
+        #     angle_initial = theta
+        #     for dof in self.dof_list:
+        #         print("{}. initial angle is: {:.2f} degree".format(dof, angle_initial[dof] * 180 / math.pi))
+        # elif mode_trajectory == "abs":
+        #     angle_initial = np.zeros(len(self.dof_list))
+        # if (u_ago is None) or (u_ant is None) or (ff is None):
+        #     (u_ago, u_ant, ff) = self.Feedforward( self.y_desired, angle_initial )
+
         # fb_inputs = [[0.0]*dim_fb]*3
         # fb_datasets = [[],[],[]]
         fb_datasets = None
 
+        # fb inputs from LQI
+        # lqr = np.copy( self.lqi_k_tracking )
+        # m = self.m_4_y
+        # n = self.n_4_u
+        # x_in = np.zeros((3*(m+n),1))
+        # x_e = 0.01*(np.array([[0],[0],[0]]) - x_in[(3*m-3):3*m])
+        # cur_states = [0.0] * (3*m)
+        # delta_pressures = [0.0] * (3*n)
+
+        # fb inputs from LQR
+        lqr = np.copy( self.lqr_k )
+        m = self.m_4_y
+        n = self.n_4_u
+        cur_states = [0.0] * (3*m)
+        delta_pressures = [0.0] * (3*n)
+        des_states = [0.0] * (3*m)
+        des_pressures = [0.0] * (3*n)
+        x_in = np.concatenate((np.array(cur_states).reshape(3*m,1),np.array(delta_pressures).reshape(3*n,1)),axis=0)
+        x_des = np.concatenate((np.array(des_states).reshape(3*m,1),np.array(des_pressures).reshape(3*n,1)),axis=0)
+
+        record_lqr = np.array([])
         # how mang steps to track
         for i in range( y_list.shape[1] ):
             # all following vectors must be column vectors
@@ -355,13 +390,28 @@ class Robot:
 
             pressure_ago = np.array([], dtype=int)
             pressure_ant = np.array([], dtype=int)
+        
+            # x_aug = np.concatenate((x_in,x_e),axis=0)
+            # fb_lqi = -lqr@x_aug
 
+            fb_lqr = -lqr@(x_in-x_des)
+            if i == 0:
+                record_lqr = np.copy( fb_lqr )
+            else:
+                record_lqr = np.hstack((record_lqr, fb_lqr))
+            
+            diff_store = np.zeros((3,1))
             for dof in self.dof_list:
                 if mode_name_list[dof] == "ff":
                     diff = ff[dof, i]
                 elif mode_name_list[dof] == "fb":
                     diff = fb[dof, i]
                 elif mode_name_list[dof] == "fb+ff" or mode_name_list[dof] == "ff+fb":
+                    # if dof<3:
+                    #     diff = ff[dof, i] + fb[dof, i] + fb_lqr[dof, 0]
+                    #     diff_store[dof] = diff
+                    # else:
+                    #     diff = ff[dof, i] + fb[dof, i]
                     diff = ff[dof, i] + fb[dof, i]
 
                 if self.strategy_list[dof] == 2:
@@ -401,8 +451,37 @@ class Robot:
             # theta_dot = np.array( theta_dot )
 
             iteration += iterations_per_command
+
+            # if True:
+            #     update_states = theta.reshape(-1)-angle_initial.reshape(-1)
+            #     [cur_states.append(update_states.tolist()[i]) for i in range(3)]
+            #     [cur_states.pop(0) for i in range(3)]
+            #     [delta_pressures.append(diff_store.reshape(-1).tolist()[i]) for i in range(3)]
+            #     [delta_pressures.pop(0) for i in range(3)]
+            #     x_in = np.concatenate((np.array(cur_states).reshape(3*m,1),np.array(delta_pressures).reshape(3*n,1)),axis=0)
+            #     x_e = x_e + 0.01*(y_list[0:3,i].reshape(3,1) - x_in[(3*m-3):3*m])
+
+            if True:
+                update_states = theta.reshape(-1)-PAMY_CONFIG.GLOBAL_INITIAL
+                [cur_states.append(update_states.tolist()[j_temp]) for j_temp in range(3)]
+                [cur_states.pop(0) for j_temp in range(3)]
+                [delta_pressures.append(diff_store.reshape(-1).tolist()[j_temp]) for j_temp in range(3)]
+                [delta_pressures.pop(0) for j_temp in range(3)]
+                x_in = np.concatenate((np.array(cur_states).reshape(3*m,1),np.array(delta_pressures).reshape(3*n,1)),axis=0)
+                [des_states.append(y_list[:,i].tolist()[j_temp]) for j_temp in range(3)]
+                [des_states.pop(0) for j_temp in range(3)]
+                [des_pressures.append(ff[j_temp, i]) for j_temp in range(3)]
+                [des_pressures.pop(0) for j_temp in range(3)]
+                x_des = np.concatenate((np.array(des_states).reshape(3*m,1),np.array(des_pressures).reshape(3*n,1)),axis=0)
+
         
         iteration_end = iteration
+
+        # print(record_lqr.shape)
+        # print('ranges of LQR inputs:')
+        # print('dof 0: {} ~ {}'.format(min(record_lqr[0,:]),max(record_lqr[0,:])))
+        # print('dof 1: {} ~ {}'.format(min(record_lqr[1,:]),max(record_lqr[1,:])))
+        # print('dof 2: {} ~ {}'.format(min(record_lqr[2,:]),max(record_lqr[2,:])))
         
         if ifplot == "yes":
             self.PlotFigures(y_list, angle_initial, ff, fb, t_stamp_u, iteration_begin, iteration_end, iterations_per_command)
@@ -631,7 +710,7 @@ class Robot:
         theta = np.array(obs_begin.get_positions())
         theta_begin = np.copy(theta)
 
-        amp = np.array([[0],[45],[40]])/180*math.pi - theta_begin.reshape(4,1)[0:3]
+        amp = np.array([[0],[60],[40]])/180*math.pi - theta_begin.reshape(4,1)[0:3]
 
         count = 0
         input = np.array([])
@@ -695,6 +774,84 @@ class Robot:
         
         return time, input, position, compute_diff, theta_begin.reshape(-1)
     
+    def LQRTrackingTesting(self, amp, frequency_frontend=100, frequency_backend=500):
+        lqr = np.copy( self.lqi_k_tracking )
+        m = self.m_4_y
+        n = self.n_4_u
+
+        period_backend = 1.0 / frequency_backend
+        period_frontend = 1.0 / frequency_frontend
+        t = 1 / frequency_frontend
+        iterations_per_command = int( period_frontend / period_backend )
+
+        iteration = self.frontend.latest().get_iteration() + 500
+        iteration_begin = iteration
+        self.frontend.add_command(self.anchor_ago_list, self.anchor_ant_list,
+                                  o80.Iteration(iteration-iterations_per_command),
+                                  o80.Mode.QUEUE)
+        obs_begin = self.frontend.pulse_and_wait()
+        theta = np.array(obs_begin.get_positions())
+        theta_begin = np.copy(theta)
+
+        count = 0
+        input = np.array([])
+        compute_diff = np.array([])
+        x_in = np.zeros((3*(m+n),1))
+        x_e = 0.01*(np.array([[0],[0],[0]]) - x_in[(3*m-3):3*m])
+        cur_states = [0.0] * (3*m)
+        delta_pressures = [0.0] * (3*n)
+        while count < amp.shape[1]:
+            input = np.append(input, theta_begin.reshape(-1)[0:3] + amp[0:3,count].reshape(-1))
+
+            x_aug = np.concatenate((x_in,x_e),axis=0)
+            feedback = -lqr@x_aug
+            compute_diff = np.append(compute_diff, feedback.reshape(-1))
+            
+            pressure_ago = [int(self.anchor_ago_list[i]+feedback[i,0]) if i<3 else self.anchor_ago_list[i] for i in self.dof_list]
+            pressure_ant = [int(self.anchor_ant_list[i]-feedback[i,0]) if i<3 else self.anchor_ant_list[i] for i in self.dof_list]
+            
+            self.frontend.add_command(pressure_ago, pressure_ant,
+                                      o80.Iteration(iteration),
+                                      o80.Mode.QUEUE)    
+            self.frontend.pulse()
+            self.frontend.add_command(pressure_ago, pressure_ant,
+                                      o80.Iteration(iteration + iterations_per_command - 1),
+                                      o80.Mode.QUEUE)
+            observation = self.frontend.pulse_and_wait()
+
+            theta = np.array(observation.get_positions())
+            iteration += iterations_per_command
+            count += 1
+            
+            if count < amp.shape[1]:
+                update_states = theta.reshape(-1)-theta_begin.reshape(-1)
+                [cur_states.append(update_states.tolist()[i]) for i in range(3)]
+                [cur_states.pop(0) for i in range(3)]
+                [delta_pressures.append(feedback.reshape(-1).tolist()[i]) for i in range(3)]
+                [delta_pressures.pop(0) for i in range(3)]
+                x_in = np.concatenate((np.array(cur_states).reshape(3*m,1),np.array(delta_pressures).reshape(3*n,1)),axis=0)
+                x_e = x_e + 0.01*(amp[0:3,count].reshape(3,1) - x_in[(3*m-3):3*m])
+
+        iteration_end = iteration
+            
+        time = np.array([])
+        position = np.array([])
+
+        iteration = iteration_begin
+        while iteration < iteration_end:
+            observation = self.frontend.read(iteration)
+            obs_position = np.array( observation.get_positions() )
+            obs_time = np.array( observation.get_time_stamp() )*1e-9
+
+            position = np.append(position, obs_position.reshape(-1)[0:3])
+            time = np.append(time, obs_time)
+
+            iteration += iterations_per_command
+        
+        time = time-time[0]
+        
+        return time, input, position, compute_diff, theta_begin.reshape(-1)
+    
     def LQRTestingFollowup(self, tar, t_duration, frequency_frontend=100, frequency_backend=500):
         lqr = np.copy( self.lqr_k )
         m = self.m_4_y
@@ -725,15 +882,15 @@ class Robot:
         x_in = np.concatenate((np.array(cur_states).reshape(3*m,1),np.array(delta_pressures).reshape(3*n,1)),axis=0)
 
         while count < t_duration*frequency_frontend:
-            print(count)
+            # print(count)
 
             target = tar[0:3]
             input = np.append(input, target.reshape(-1))
 
             feedback = -lqr@x_in
             compute_diff = np.append(compute_diff, feedback.reshape(-1))
-            print(x_in)
-            print(feedback)
+            # print(x_in)
+            # print(feedback)
             
             pressure_ago = [int(self.anchor_ago_list[i]+feedback[i,0]) if i<3 else self.anchor_ago_list[i] for i in self.dof_list]
             pressure_ant = [int(self.anchor_ant_list[i]-feedback[i,0]) if i<3 else self.anchor_ant_list[i] for i in self.dof_list]
@@ -778,7 +935,7 @@ class Robot:
         
         return time, input, position, compute_diff
 
-    def ILC(self, number_iteration, GLOBAL_INITIAL, mode_name='none', ref_traj=None):
+    def ILC(self, number_iteration, GLOBAL_INITIAL, mode_name='none', ref_traj=None, T_go=None):
         '''
         only get the feedforward control without exciting the simulation/real system
         u is the basic presssure and ff is the feedforward control
@@ -866,8 +1023,12 @@ class Robot:
 
             t_stamp = np.linspace(0, (y.shape[1]-1)*0.01, y.shape[1], endpoint = True)
             y_ = y - y[:,0].reshape(-1,1) + ref_traj[:,0].reshape(-1,1)
-            wandb_plot(i_iter=i, frequency=1, t_stamp=t_stamp, ff=ff, fb=fb, y=y_, theta_=ref_traj, t_stamp_list=[], theta_list=[], T_go_list=[], p_int_record=[], 
-                   obs_ago=obs_ago, obs_ant=obs_ant, des_ago=des_ago, des_ant=des_ant, SI_ref = None, disturbance=disturbance)
+
+            RG = RobotGeometry(initial_posture=PAMY_CONFIG.GLOBAL_INITIAL)
+            (_, end_ref) = RG.AngleToEnd(ref_traj)
+            (_, end_real) = RG.AngleToEnd(y)
+            wandb_plot(i_iter=i, frequency=1, t_stamp=t_stamp, ff=ff, fb=fb, y=y_, theta_=ref_traj, t_stamp_list=[], theta_list=[], T_go_list=[T_go], p_int_record=[], 
+                   obs_ago=obs_ago, obs_ant=obs_ant, des_ago=des_ago, des_ant=des_ant, SI_ref = None, disturbance=disturbance, end_ref=end_ref, end_real=end_real)
 
             # record all the results of each iteration
             fb_history.append(np.copy(fb))
@@ -886,24 +1047,25 @@ class Robot:
             self.PressureInitialization()
             print("...initialization completed")
 
-        for _ in range(2):
-            (y, _, _, _) = self.Control(self.y_desired, mode_name_list=mode_name_list, 
-                                        ifplot="no", u_ago=u_ago, u_ant=u_ant, ff=ff, echo="yes", 
-                                        controller='pd' )
+        # for _ in range(2):
+        #     (y, _, _, _) = self.Control(self.y_desired, mode_name_list=mode_name_list, 
+        #                                 ifplot="no", u_ago=u_ago, u_ant=u_ant, ff=ff, echo="yes", 
+        #                                 controller='pd' )
             
-            repeated.append(np.copy(y))
-            # self.AngleInitialization(GLOBAL_INITIAL)
-            (ig_t, ig_step, ig_position, ig_diff, ig_theta_zero) = self.LQRTesting(amp = np.array([[30], [30], [30]])/180*math.pi, t_start = 0.0, t_duration = 6.0)
-            self.PressureInitialization()
+        #     repeated.append(np.copy(y))
+        #     # self.AngleInitialization(GLOBAL_INITIAL)
+        #     (ig_t, ig_step, ig_position, ig_diff, ig_theta_zero) = self.LQRTesting(amp = np.array([[30], [30], [30]])/180*math.pi, t_start = 0.0, t_duration = 6.0)
+        #     self.PressureInitialization()
 
-        mode_name_list = ['ff+fb', 'ff+fb', 'ff+fb', 'ff+fb']
-        (y_pid, _, _, _) = self.Control(self.y_desired, mode_name_list=mode_name_list, 
-                                        ifplot="no", u_ago=u_ago, u_ant=u_ant, ff=ff, echo="yes", 
-                                        controller='pd' )
-        # self.AngleInitialization(GLOBAL_INITIAL)
-        (ig_t, ig_step, ig_position, ig_diff, ig_theta_zero) = self.LQRTesting(amp = np.array([[30], [30], [30]])/180*math.pi, t_start = 0.0, t_duration = 6.0)
-        self.PressureInitialization()
+        # mode_name_list = ['ff+fb', 'ff+fb', 'ff+fb', 'ff+fb']
+        # (y_pid, _, _, _) = self.Control(self.y_desired, mode_name_list=mode_name_list, 
+        #                                 ifplot="no", u_ago=u_ago, u_ant=u_ant, ff=ff, echo="yes", 
+        #                                 controller='pd' )
+        # # self.AngleInitialization(GLOBAL_INITIAL)
+        # (ig_t, ig_step, ig_position, ig_diff, ig_theta_zero) = self.LQRTesting(amp = np.array([[30], [30], [30]])/180*math.pi, t_start = 0.0, t_duration = 6.0)
+        # self.PressureInitialization()
 
+        y_pid = None
         return(y_history, repeated, ff_history, disturbance_history, P_history, d_lifted_history, P_lifted_history, fb_history, ago_history, ant_history, y_pid)
 
     def get_delay(self, dof, xx):

@@ -237,7 +237,7 @@ class Filter:
         self.Bd = Bd
         self.Bdes = Bdes
 
-        self.Bu_inv = np.linalg.inv(self.Bu.T@self.Bu)
+        # self.Bu_inv = np.linalg.inv(self.Bu.T@self.Bu)
 
         # self.part_1 = self.Bu_inv@self.Bu.T@self.y_des
         # self.part_2 = self.Bu_inv@self.Bu.T@self.Ao

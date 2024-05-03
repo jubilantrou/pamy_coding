@@ -18,7 +18,7 @@ def FulfillZeros( a ):
 # %%
 obj = 'real'
 
-# All the values are absolute values in angular space in rad.
+# All the values are absolute values in joint space in rad.
 if obj=='sim':
     GLOBAL_INITIAL = np.array([0, 0.8, 0, 0])
 elif obj=='real':

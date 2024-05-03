@@ -49,9 +49,12 @@ def get_random() -> Tuple[float, NDArray[Shape['3, ...'], np.float64]]:
     '''
     t = random.randrange(90, 100)/100
     theta = np.zeros(3)
-    theta[0] = random.choice([random.randrange(-900, -450)/10, random.randrange(450, 900)/10])
-    theta[1] = random.randrange(450, 750)/10
-    theta[2] = random.randrange(150, 750)/10
+    # theta[0] = random.choice([random.randrange(-900, -450)/10, random.randrange(450, 900)/10])
+    # theta[1] = random.randrange(450, 800)/10
+    # theta[2] = random.randrange(150, 750)/10
+    theta[0] = random.randrange(-900, -450)/10
+    theta[1] = random.randrange(450, 800)/10
+    theta[2] = random.randrange(200, 750)/10
     theta = theta * math.pi/180
     return (t, theta)
 
@@ -72,7 +75,7 @@ def get_compensated_data(data: NDArray[Any, np.float64], h_l: int, h_r: int) -> 
     aug_data = np.hstack((I_left, data, I_right))
     return aug_data
 
-def get_datapoints(aug_data, window_size, ds, device, nn_type, disturbance=False):
+def get_datapoints(aug_data, window_size, ds, device, nn_type):
     '''
     to extract datapoints of each time step from the padded reference trajectory
 
@@ -89,10 +92,7 @@ def get_datapoints(aug_data, window_size, ds, device, nn_type, disturbance=False
 
     l = aug_data.shape[1] - window_size + 1
     for k in range(l):
-        if not disturbance:
-            datapoint = aug_data[0:3, k:k+window_size:ds].reshape(3,-1)
-        else:
-            datapoint = (aug_data[0:3, k:k+window_size:ds]*np.array([[1/1e5],[1/1e5],[1/1e5]])).reshape(3,-1)
+        datapoint = aug_data[0:3, k:k+window_size:ds].reshape(3,-1)
         if nn_type=='FCN':
             # the dim of each datapoint: (channel x height x width)
             datapoints.append(torch.tensor(datapoint, dtype=float).view(-1).to(device))
@@ -104,7 +104,7 @@ def get_datapoints(aug_data, window_size, ds, device, nn_type, disturbance=False
     
     return datapoints
 
-def get_datapoints_pro(aug_data, ref, window_size, ds, device, nn_type, disturbance=False):
+def get_datapoints_pro(aug_data, ref, window_size, ds, device, nn_type):
     '''
     to extract datapoints of each time step from the padded reference trajectory with mimic online updates
 
@@ -128,12 +128,9 @@ def get_datapoints_pro(aug_data, ref, window_size, ds, device, nn_type, disturba
                 choice += 1
             else:
                 break
-        # TODO: try to modify the input data, and to sample not uniformly
-        if not disturbance:
-            datapoint = (aug_data[choice][0:3, k:k+window_size:ds]*np.array([[1/np.pi],[2/np.pi],[2/np.pi]])).reshape(3,-1)
-            # datapoint = ((np.hstack((aug_data[choice][0:3, k:k+45:9], aug_data[choice][0:3, k+45:k+56:1], aug_data[choice][0:3, k+56:k+141:6])))*np.array([[1/np.pi],[2/np.pi],[2/np.pi]])).reshape(3,-1)
-        else:
-            datapoint = (aug_data[choice][0:3, k:k+window_size:ds]*np.array([[1e-5*2/np.pi],[2e-5*2/np.pi],[2e-4*2/np.pi]])).reshape(3,-1)        
+        # TODO: try to normalize the input data, and to sample not uniformly
+        datapoint = aug_data[choice][0:3, k:k+window_size:ds].reshape(3,-1)
+        # datapoint = ((np.hstack((aug_data[choice][0:3, k:k+45:9], aug_data[choice][0:3, k+45:k+56:1], aug_data[choice][0:3, k+56:k+141:6])))*np.array([[1/np.pi],[2/np.pi],[2/np.pi]])).reshape(3,-1)    
         if nn_type=='FCN':
             # the dim of each datapoint: (channel x height x width)
             datapoints.append(torch.tensor(datapoint, dtype=float).view(-1).to(device))
@@ -358,5 +355,5 @@ def get_decreasing_step_size(iter, lr_list):
     '''
     step_size_list = []
     for lr in lr_list:
-        step_size_list.append(lr/(2+np.sqrt(iter)))
+        step_size_list.append(lr/(1+np.sqrt(iter)))
     return step_size_list

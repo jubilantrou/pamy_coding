@@ -1,27 +1,21 @@
 import math
-import time
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import MinJerk_penalty as MJ_penalty
-import MinJerk_analytic as MJ_analytic
-import LinearPlanning as MJ_linear
-import numba as nb
-import pickle5 as pickle
 import random
 
 class RobotGeometry:
 
     def __init__(self, center_of_robot=[0, 0, 0], x_of_robot=[1, 0, 0],
-                 y_of_robot=[0, 1, 0], z_of_robot=[0, 0, 1], 
-                 initial_posture=np.array([0, 85/180*math.pi, 85/180*math.pi, 0]),
-                 l_1=0.40, l_2=0.38, step_size=0.01, constraint_angle=None):
-        # for now the coordinates of robot must be [0, 0, 0]
+                 y_of_robot=[0, 1, 0], z_of_robot=[0, 0, 1],
+                 l_1=0.40, l_2=0.38, step_size=0.01, initial_posture=None, constraint_angle=None):
+        # for now the center of the robot must be [0, 0, 0]
         self.center_of_robot = center_of_robot
         self.x_of_robot = x_of_robot
         self.y_of_robot = y_of_robot
         self.z_of_robot = z_of_robot
-        # initial posture is given in joint space
+        # initial posture must be given, using absolute values in joint space in rad, as the form 
         self.initial_posture = initial_posture
         self.l_1 = l_1
         self.l_2 = l_2
@@ -48,13 +42,13 @@ class RobotGeometry:
         theta2 = angle[2]
 
         if frame == 'Cartesian':
-            x = math.cos(theta0) * math.sin(theta1) * l_1
-            y = math.sin(theta0) * math.sin(theta1) * l_1
-            z = math.cos(theta1) * l_1
+            x = np.cos(theta0) * np.sin(theta1) * l_1
+            y = np.sin(theta0) * np.sin(theta1) * l_1
+            z = np.cos(theta1) * l_1
             position_A = np.array([-y, x, z+1.21])
-            x = math.cos(theta0) * math.sin(theta1) * l_1 + math.cos(theta0) * math.sin(theta1 + theta2) * l_2
-            y = math.sin(theta0) * math.sin(theta1) * l_1 + math.sin(theta0) * math.sin(theta1 + theta2) * l_2
-            z = math.cos(theta1) * l_1 + math.cos(theta1 + theta2) * l_2
+            x = np.cos(theta0) * np.sin(theta1) * l_1 + np.cos(theta0) * np.sin(theta1 + theta2) * l_2
+            y = np.sin(theta0) * np.sin(theta1) * l_1 + np.sin(theta0) * np.sin(theta1 + theta2) * l_2
+            z = np.cos(theta1) * l_1 + np.cos(theta1 + theta2) * l_2
             position_B = np.array([-y, x, z+1.21])
 
         elif frame == 'Polar':
@@ -92,7 +86,7 @@ class RobotGeometry:
             z = position[2]-1.21
 
             l      = np.linalg.norm((x,y,z), ord=2)
-            theta0 = math.atan(y/x)
+            theta0 = math.atan2(y,x)
 
             temp = (l_1**2 + l**2 - l_2**2) / (2*l_1*l)
             if temp>1:
@@ -310,7 +304,7 @@ class RobotGeometry:
     def updatedPathPlanning(self, time_point, T_go=1.0, T_back=1.0, T_steady=0.1,
                       angle=None, velocity_initial=np.array([0, 0, 0]), 
                       acceleration_initial=np.array([0, 0, 0]),
-                      target=None, frequency=100, plan_weight=(6, 10), method=None):
+                      target=None, frequency=100, plan_weight=(6, 10), method=None, target_vel=None):
         
         p_list = []
         v_list = []
@@ -322,7 +316,8 @@ class RobotGeometry:
         time_update_record = []
         T_go_list = [T_go]
 
-        (p, v, a, j, theta, t_stamp) = self.PathPlanning(time_point=time_point, angle=angle, T_go=T_go, target=target, part=0)
+        (p, v, a, j, theta, t_stamp, vel) = self.PathPlanning(time_point=time_point, angle=angle, T_go=T_go, target=target, part=0, target_vel=target_vel)
+        print('desired interpetion vel. is: {}'.format(vel))
         p_list.append(p)
         v_list.append(v)
         a_list.append(a)
@@ -336,20 +331,22 @@ class RobotGeometry:
             # print('currrent time:')
             # print(t_begin)
 
-            T_go += random.randrange(-15, 15)/100
-            if T_go>1.2:
-                T_go = 1.2
+            T_go += random.randrange(-5, 5)/100
+            if T_go>1.1:
+                T_go = 1.1
+            elif T_go<0.85:
+                T_go = 0.85
             (_, temp) = self.AngleToEnd(target[0:3], frame='Cartesian')
-            temp += [random.randrange(-4,4)/100,random.randrange(-4,4)/100,random.randrange(-4,4)/100]
+            temp += [random.randrange(-3,3)/100,random.randrange(-3,3)/100,random.randrange(-3,3)/100]
             target = self.EndToAngle(temp)
-            if target[0] > 70/180*math.pi:
-                target[0] = 70/180*math.pi
-            elif target[0] < -70/180*math.pi:
-                target[0] = -70/180*math.pi
-            if target[1] > 75/180*math.pi:
-                target[1] = 75/180*math.pi
-            elif target[1] < 15/180*math.pi:
-                target[1] = 15/180*math.pi
+            if target[0] > 90/180*math.pi:
+                target[0] = 90/180*math.pi
+            elif target[0] < -90/180*math.pi:
+                target[0] = -90/180*math.pi
+            if target[1] > 80/180*math.pi:
+                target[1] = 80/180*math.pi
+            elif target[1] < 45/180*math.pi:
+                target[1] = 45/180*math.pi
             if target[2] > 75/180*math.pi:
                 target[2] = 75/180*math.pi
             elif target[2] < 15/180*math.pi:
@@ -360,14 +357,14 @@ class RobotGeometry:
 
             if T_go-(t_begin+0.1) >= 0.4:
                 if method=='with_delay':
-                    (p, v, a, j, theta, t_stamp) = self.PathPlanning(time_point=(t_begin*100+10), angle=theta[:,(idx_begin+10)], 
-                                                                     velocity_initial=v[:,(idx_begin+10)], acceleration_initial=a[:,(idx_begin+10)], T_go=T_go, target=target, part=0)
+                    (p, v, a, j, theta, t_stamp, _) = self.PathPlanning(time_point=(t_begin*100+10), angle=theta[:,(idx_begin+10)], 
+                                                                     velocity_initial=v[:,(idx_begin+10)], acceleration_initial=a[:,(idx_begin+10)], T_go=T_go, target=target, part=0, target_vel=vel)
                     time_update_record.append(idx_begin+10)
                     idx_begin = 0
                     t_begin += 0.1
                 elif method=='no_delay':
-                    (p, v, a, j, theta, t_stamp) = self.PathPlanning(time_point=(t_begin*100), angle=theta[:,(idx_begin)], 
-                                                                     velocity_initial=v[:,(idx_begin)], acceleration_initial=a[:,(idx_begin)], T_go=T_go, target=target, part=0)
+                    (p, v, a, j, theta, t_stamp, _) = self.PathPlanning(time_point=(t_begin*100), angle=theta[:,(idx_begin)], 
+                                                                     velocity_initial=v[:,(idx_begin)], acceleration_initial=a[:,(idx_begin)], T_go=T_go, target=target, part=0, target_vel=vel)
                     time_update_record.append(idx_begin)
                     idx_begin = 10
                     t_begin += 0.1
@@ -381,12 +378,12 @@ class RobotGeometry:
 
             else:
                 if method=='with_delay':
-                    (p, v, a, j, theta, t_stamp) = self.PathPlanning(time_point=(t_begin*100+10), angle=theta[:,(idx_begin+10)], 
-                                                                     velocity_initial=v[:,(idx_begin+10)], acceleration_initial=a[:,(idx_begin+10)], T_go=T_go, target=target, part=0)
+                    (p, v, a, j, theta, t_stamp, _) = self.PathPlanning(time_point=(t_begin*100+10), angle=theta[:,(idx_begin+10)], 
+                                                                     velocity_initial=v[:,(idx_begin+10)], acceleration_initial=a[:,(idx_begin+10)], T_go=T_go, target=target, part=0, target_vel=vel)
                     time_update_record.append(idx_begin+10)
                 elif method=='no_delay':
-                    (p, v, a, j, theta, t_stamp) = self.PathPlanning(time_point=(t_begin*100), angle=theta[:,(idx_begin)], 
-                                                                     velocity_initial=v[:,(idx_begin)], acceleration_initial=a[:,(idx_begin)], T_go=T_go, target=target, part=0)
+                    (p, v, a, j, theta, t_stamp, _) = self.PathPlanning(time_point=(t_begin*100), angle=theta[:,(idx_begin)], 
+                                                                     velocity_initial=v[:,(idx_begin)], acceleration_initial=a[:,(idx_begin)], T_go=T_go, target=target, part=0, target_vel=vel)
                     time_update_record.append(idx_begin)
                 
                 p_list.append(p)
@@ -416,7 +413,7 @@ class RobotGeometry:
     def PathPlanning( self, time_point, T_go=1.0, T_back=1.35, T_steady=0.15,
                       angle=None, velocity_initial=np.array([0, 0, 0]), 
                       acceleration_initial=np.array([0, 0, 0]),
-                      target=None, frequency=100, plan_weight=(12, 5), part=1,):
+                      target=None, frequency=100, plan_weight=(12.5, 5.5), part=1, target_vel=None):
 
         l_1 = self.l_1
         l_2 = self.l_2
@@ -428,7 +425,10 @@ class RobotGeometry:
         (_, p_initial) = self.AngleToEnd(angle[0:3], frame='Cylinder')  # theta1, r, h
         (_, p_target) = self.AngleToEnd(target[0:3], frame='Cylinder')  # theta1, r, h
 
-        vel = random.randrange(20, 50)/10
+        if target_vel is None:
+            vel = random.randrange(40, 60)/10
+        else:
+            vel = target_vel
         # print('desired interpetion vel. is: {}'.format(vel))
         if p_target[0]<=0:
             v_target = np.array([vel/p_target[1], 0, 0])
@@ -495,7 +495,7 @@ class RobotGeometry:
         p_angular_mjp = self.CalAngularTrajectory(p_mjp, self.initial_posture[0:3], frame='Cylinder')
         # p_angular_mja = self.CalAngularTrajectory(p_mja, angle[0:3] + self.initial_posture[0:3], frame='Cylinder')
 
-        return (p_mjp, p_mjv, p_mja, p_mjj, p_angular_mjp, t_stamp)
+        return (p_mjp, p_mjv, p_mja, p_mjj, p_angular_mjp, t_stamp, vel)
 
 def GetPlot(p_mja, p_mjp, p_angular_mja, p_angular_mjp, p_angular_mjl, t_list, step, index):
 

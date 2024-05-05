@@ -1,55 +1,34 @@
+'''
+This script is used to do the system identification by exciting all the DoFs together
+using the random multisine signals whose phases are properly shited by a DFT matrix.
+'''
 import PAMY_CONFIG
 import math
-import os
 import matplotlib.pyplot as plt
 from get_handle import get_handle
 import o80_pam
 from RealRobotGeometry import RobotGeometry
-import scipy
 import numpy as np
 import o80
-import os
 from get_handle import get_handle
 import o80_pam
 
-def SystemIdentification(robot, initial_angle, file_name):
-        # robot.PressureInitialization(duration=4)
-        # print(frontend.latest().get_observed_pressures())
-
-        # (t, step, position, diff, theta_zero) = Pamy.LQRTesting(amp = np.array([[0], [0], [0]])/180*math.pi, t_start = 0.0, t_duration = 10.0)
+def SystemIdentification(robot, initial_angle, f_input, f_output):
         init_pressures = np.array(frontend.latest().get_observed_pressures())
-        print(init_pressures)
-        # robot.anchor_ago_list = init_pressures[:,0]
-        # print(robot.anchor_ago_list)
-        # robot.anchor_ant_list = init_pressures[:,1]
         init_positions = np.array(frontend.latest().get_positions())
 
-        # robot.AngleInitialization(angle=initial_angle)
-        # reset_pressures = np.array(robot.frontend.latest().get_observed_pressures())
-        # robot.anchor_ago_list = reset_pressures[:, 0]
-        # robot.anchor_ant_list = reset_pressures[:, 1]
-        # robot.anchor_ago_list[2] = 17000
-        # robot.anchor_ant_list[2] = 21000
-
-        # ago_pressure_max = PAMY_CONFIG.ago_max_list - robot.anchor_ago_list
-        # ago_pressure_min = PAMY_CONFIG.ago_min_list - robot.anchor_ago_list
-        # ant_pressure_max = PAMY_CONFIG.ant_max_list - robot.anchor_ant_list
-        # ant_pressure_min = PAMY_CONFIG.ant_min_list - robot.anchor_ant_list
-        # amp_list = [min([ago_pressure_max[i],-ago_pressure_min[i],ant_pressure_max[i],-ant_pressure_min[i]])/1000 for i in range(len(PAMY_CONFIG.dof_list))]
-        # amp_list[1] = 2.0
-        # amp_list[2] = 2.0
         amp_list = [4.0, 3.0, 3.0, 2.0]
-        print(amp_list)
-
-        fs                     = 100
+        print('amp list: {}'.format(amp_list))
+       
         frequency              = 500.0
         period                 = 1.0/frequency
+        fs                     = 100
         duration_per_command   = 1 / fs
         iterations_per_command = int(duration_per_command/period)
 
-        u         = np.loadtxt(file_name, delimiter=',')
-        p         = 10
-        [m, N]    = u.shape
+        u         = np.loadtxt(f_input, delimiter=',')
+        p         = 10 # p still indicates how many periods used for repeat
+        [m, N]    = u.shape # now m is a constant 3 corresponding to 3 signals for DoF 1-3, while N is still the number of time points in each signal
         u         = np.tile(u, p)
         t_stamp_u = np.arange(0, (N*p)/fs, 1/fs)
         t         = 1 / fs
@@ -67,8 +46,8 @@ def SystemIdentification(robot, initial_angle, file_name):
         for i in range(3):
             u[i,:] = u[i,:]*amp_list[i]
 
-        # N = 3000
-        for i in range(N*p):          
+        total_iter = N*p
+        for i in range(total_iter):          
             pressure_ago = np.array([], dtype=int)
             pressure_ant = np.array([], dtype=int)
 
@@ -76,11 +55,6 @@ def SystemIdentification(robot, initial_angle, file_name):
                 diff = u[dof, i]
                 pressure_ago = np.append(pressure_ago, int( robot.anchor_ago_list[dof] + diff ))
                 pressure_ant = np.append(pressure_ant, int( robot.anchor_ant_list[dof] - diff ))
-            
-            # pressure_ago[0] = int( robot.anchor_ago_list[0] )
-            # pressure_ant[0] = int( robot.anchor_ant_list[0] )
-            # pressure_ago[1] = int( robot.anchor_ago_list[1] )
-            # pressure_ant[1] = int( robot.anchor_ant_list[1] )
             pressure_ago = np.append(pressure_ago, int( robot.anchor_ago_list[3] ))
             pressure_ant = np.append(pressure_ant, int( robot.anchor_ant_list[3] ))
 
@@ -95,7 +69,9 @@ def SystemIdentification(robot, initial_angle, file_name):
             
             iteration += iterations_per_command
 
-        f_output = "/home/mtian/Desktop/MPI-intern/" + "DFT_short_III_3_SI_result_real_robot_3Hz" + ".txt"
+        iteration_end  = iteration
+        iteration = iteration_begin
+
         position = np.array([])
         velocity = np.array([])
         obs_pressure_ant = np.array([])
@@ -104,8 +80,6 @@ def SystemIdentification(robot, initial_angle, file_name):
         des_pressure_ago = np.array([])
         t_stamp = np.array([])
 
-        iteration_end  = iteration
-        iteration = iteration_begin
         while iteration < iteration_end:
             observation = frontend.read(iteration)
 
@@ -116,14 +90,11 @@ def SystemIdentification(robot, initial_angle, file_name):
 
             obs_pressure_ago = np.append(obs_pressure_ago, obs_pressure[:,0])
             obs_pressure_ant = np.append(obs_pressure_ant, obs_pressure[:,1])
-
             des_pressure_ago = np.append(des_pressure_ago, des_pressure[:,0])
             des_pressure_ant = np.append(des_pressure_ant, des_pressure[:,1])
-
-            position = np.append(position, obs_position)
-            velocity = np.append(velocity, obs_velocity)
-
-            t_stamp = np.append(t_stamp, observation.get_time_stamp() * 1e-9)
+            position         = np.append(position, obs_position)
+            velocity         = np.append(velocity, obs_velocity)
+            t_stamp          = np.append(t_stamp, observation.get_time_stamp() * 1e-9)
 
             iteration += iterations_per_command
         
@@ -131,16 +102,18 @@ def SystemIdentification(robot, initial_angle, file_name):
         for i in range(0, len(t_stamp)):
             t_stamp[i] = t_stamp[i] - initial_time
 
-        plt.plot(t_stamp, [position[4*i+0]/math.pi*180 for i in range(N*p)])
-        plt.plot(t_stamp, [position[4*i+1]/math.pi*180 for i in range(N*p)], color='g')
-        plt.plot(t_stamp, [position[4*i+2]/math.pi*180 for i in range(N*p)], color='y')
+        # use a simple plotting to make sure DoF2 and DoF3 will not touch the boundary very often,
+        # i.e. reaching 90 degrees, otherwise we need to reduced used amp values
+        plt.plot(t_stamp, [position[4*i+0]/math.pi*180 for i in range(total_iter)])
+        plt.plot(t_stamp, [position[4*i+1]/math.pi*180 for i in range(total_iter)], color='g')
+        plt.plot(t_stamp, [position[4*i+2]/math.pi*180 for i in range(total_iter)], color='y')
         plt.axhline(y=90, color='r', linestyle='-')
         plt.show()
 
         print("total duration:",t_stamp[-1]-t_stamp[0])
-        print("expected:",t_stamp_u[-1])
-        print("number of simulation:",len(t_stamp))
-        print("desired number:",len(t_stamp_u))
+        print("expected duration:",t_stamp_u[-1])
+        print("number of collected points:",len(t_stamp))
+        print("desired number of collected points:",len(t_stamp_u))
 
         print("begin to write data to the file...")
         f = open(f_output, 'w')
@@ -173,5 +146,8 @@ if __name__=='__main__':
     Pamy = PAMY_CONFIG.build_pamy(frontend=frontend)
     RG = RobotGeometry(initial_posture=PAMY_CONFIG.GLOBAL_INITIAL)
 
-    file_name = '/home/mtian/Pamy_OCO/excitation signals/excitation_3Hz_DFT_short_III_3.csv'
-    SystemIdentification(robot=Pamy, initial_angle=PAMY_CONFIG.GLOBAL_INITIAL, file_name=file_name)
+    f_input = '/home/mtian/Pamy_OCO/excitation signals/excitation_3Hz_DFT_short_III_3.csv'
+    f_output = "/home/mtian/Desktop/MPI-intern/" + "test_DFT_short_III_3_SI_result_real_robot_3Hz" + ".txt"
+    # TODO: also need to ensure that the robot is already at its desired initial setting before starting the SI, either by 
+    # adjusting it manually after pressure initialization or by using the PID/LQR controller that you have tuned
+    SystemIdentification(robot=Pamy, initial_angle=PAMY_CONFIG.GLOBAL_INITIAL, f_input=f_input, f_output=f_output)

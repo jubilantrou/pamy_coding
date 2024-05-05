@@ -1,8 +1,8 @@
+# TODO: need to rewrite this script as a Class for more convenient usage
 '''
 This script is used to store the configuration information of 
 the simulator and the real robot.
 '''
-# TODO: need to be rewritten as a Class for convenience
 # %%
 import numpy as np
 from RealRobot import Robot
@@ -10,15 +10,18 @@ import math
 
 # %%
 def FulfillZeros( a ):
+    # change a list whose elements are lists in different lenght into np.array by adding zeros
     b = np.zeros( [len(a), len(max(a, key = lambda x: len(x)))] )
     for i,j in enumerate(a):
         b[i][0:len(j)] = j
     return b
 
 # %%
+# TODO: need to update the SI parameters and the PID for the simulator, 
+# which are not double checked as there are a bug in the DoF1 of the simulator
 obj = 'real'
 
-# All the values are absolute values in joint space in rad.
+# values of GLOBAL_INITIAL are absolute values in joint space in rad
 if obj=='sim':
     GLOBAL_INITIAL = np.array([0, 0.8, 0, 0])
 elif obj=='real':
@@ -295,7 +298,8 @@ if obj=='sim':
 elif obj=='real':
     anchor_ago_list = np.array([20500, 22000, 13850, 17000])
     anchor_ant_list = np.array([20500, 20000, 13850, 17000])
-    # TODO: need to be in accordance with LimitCheck.py and pam.json for the real robot
+    # TODO: when making adjustments, need to ensure new pressure ranges are in accordance with 
+    # the ones in LimitCheck.py and the ones in pam.json for the real robot
     ago_min_list = np.array([12000, 14000, 8850,  13000])
     ago_max_list = np.array([29000, 30000, 18850, 19000])
     ant_min_list = np.array([12000, 12000, 8850,  13000])

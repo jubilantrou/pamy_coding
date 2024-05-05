@@ -1,3 +1,7 @@
+'''
+This script is used to define the related functions 
+for the minimum jerk algorithm.
+'''
 import numpy as np
 import math
 from math import cos, sin, sqrt
@@ -191,12 +195,12 @@ def CalPositionTerm(t, m, n):
 
 def CalParameter(x_0, x_f, t_0, t_f, m, n):
   term_inital = [CalPositionTerm(t_0, m, n),
-                  CalVelocityTerm(t_0, m, n),
-                  CalAccelerationTerm(t_0, m, n)]
+                 CalVelocityTerm(t_0, m, n),
+                 CalAccelerationTerm(t_0, m, n)]
   
-  term_final = [CalPositionTerm(t_f, m, n),
-                CalVelocityTerm(t_f, m, n),
-                CalAccelerationTerm(t_f, m, n)]
+  term_final  = [CalPositionTerm(t_f, m, n),
+                 CalVelocityTerm(t_f, m, n),
+                 CalAccelerationTerm(t_f, m, n)]
 
   M = np.vstack((term_final, term_inital))
   vec = np.vstack((x_f.reshape(-1, 1), x_0.reshape(-1, 1)))
@@ -226,13 +230,13 @@ def CalPath(x_0, x_f, t_0, t_f, step, m, n):
   
   return (p, v, a, j)
 
-def GetSteady(x, t_0, t_f, step):
-  nr_point = int(np.round((t_f-t_0)/step)) + 1
-  p = np.ones(nr_point) * x[0]
-  v = np.ones(nr_point) * x[1]
-  a = np.ones(nr_point) * x[2]
-  j = np.ones(nr_point) * 0
-  return (p, v, a, j)
+# def GetSteady(x, t_0, t_f, step):
+#   nr_point = int(np.round((t_f-t_0)/step)) + 1
+#   p = np.ones(nr_point) * x[0]
+#   v = np.ones(nr_point) * x[1]
+#   a = np.ones(nr_point) * x[2]
+#   j = np.ones(nr_point) * 0
+#   return (p, v, a, j)
 
 def GetPath(x_temp, v_temp, a_temp, t_temp, m, n, step):
   '''
@@ -254,35 +258,33 @@ def PathPlanning(x_list, v_list, a_list, t_list, step, m_list, n_list):
     num += temp
   t_stamp = np.linspace(t_list[0], t_list[-1], num, endpoint=True)
 
-  position = np.zeros((nr_dof, len(t_stamp)))
-  velocity = np.zeros((nr_dof, len(t_stamp)))
+  position     = np.zeros((nr_dof, len(t_stamp)))
+  velocity     = np.zeros((nr_dof, len(t_stamp)))
   acceleration = np.zeros((nr_dof, len(t_stamp)))
-  jerk = np.zeros((nr_dof, len(t_stamp)))
+  jerk         = np.zeros((nr_dof, len(t_stamp)))
   
-  position[:, 0] = x_list[:, 0]
-  velocity[:, 0] = v_list[:, 0]
+  position[:, 0]     = x_list[:, 0]
+  velocity[:, 0]     = v_list[:, 0]
   acceleration[:, 0] = a_list[:, 0]
-  jerk[:, 0] = np.zeros(nr_dof)
+  jerk[:, 0]     = np.zeros(nr_dof)
 
   idx_1 = 0
   idx_2 = 1
-  
   for i_point in range(1, nr_point):
-    
     idx_1 = idx_2
     idx_2 = idx_1 + int(np.round((t_list[i_point]-t_list[i_point-1])/step))
     
     [p, v, a, j] = GetPath(x_list[:, i_point-1:i_point+1], 
                            v_list[:, i_point-1:i_point+1], 
                            a_list[:, i_point-1:i_point+1],
-                           t_list[i_point-1:i_point+1], 
-                          #  (np.array(t_list[i_point-1:i_point+1])-t_list[0]).tolist(), 
+                           t_list[i_point-1:i_point+1],
                            m_list[:, i_point-1], 
-                           n_list[:, i_point-1], step)
-    position[:, idx_1:idx_2] = p[:, 1:]
-    velocity[:, idx_1:idx_2] = v[:, 1:]
+                           n_list[:, i_point-1],
+                           step)
+    position[:, idx_1:idx_2]     = p[:, 1:]
+    velocity[:, idx_1:idx_2]     = v[:, 1:]
     acceleration[:, idx_1:idx_2] = a[:, 1:]
-    jerk[:, idx_1:idx_2] = j[:, 1:]
+    jerk[:, idx_1:idx_2]         = j[:, 1:]
   
   return (position, velocity, acceleration, jerk, t_stamp)
 
@@ -320,9 +322,9 @@ if __name__ == '__main__':
   [position, velocity, acceleration, jerk, t_stamp] = PathPlanning(x_list, v_list, a_list, t_list, step, m_list, n_list)
   
   nr_dof = x_list.shape[0]
-  legend_position = 'lower right'
-  
+  legend_position = 'lower right'  
   fig = plt.figure(figsize=(16, 16))
+
   ax_position = fig.add_subplot(411)
   plt.xlabel(r'Time $t$ in s')
   plt.ylabel(r'Angle $\theta$ in degree')
@@ -360,8 +362,3 @@ if __name__ == '__main__':
   plt.legend(handles=line, loc=legend_position, shadow=True)
   
   plt.show()
-    
-    
-
-
-

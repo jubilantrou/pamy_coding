@@ -296,10 +296,10 @@ if obj=='sim':
     ant_min_list = np.array([16000, 16000, 13000, 13000])
     ant_max_list = np.array([24900, 24900, 20900, 21800])
 elif obj=='real':
+    # TODO: when making adjustments, need to ensure new anchor pressures and pressure ranges 
+    # are in accordance with the ones in LimitCheck.py and the ones in pam.json for the real robot
     anchor_ago_list = np.array([20500, 22000, 13850, 17000])
     anchor_ant_list = np.array([20500, 20000, 13850, 17000])
-    # TODO: when making adjustments, need to ensure new pressure ranges are in accordance with 
-    # the ones in LimitCheck.py and the ones in pam.json for the real robot
     ago_min_list = np.array([12000, 14000, 8850,  13000])
     ago_max_list = np.array([29000, 30000, 18850, 19000])
     ant_min_list = np.array([12000, 12000, 8850,  13000])

@@ -1,19 +1,19 @@
 '''
-This script is used to define the plotting functions 
+This script is used to define the most commonly used plotting function 
 for the OCO training procedure.
 '''
 import math
 import matplotlib.pyplot as plt
 import wandb
 
-def wandb_plot(i_iter, frequency, t_stamp, ff, fb, y, theta_, t_stamp_list, theta_list, T_go_list, p_int_record, obs_ago, obs_ant, des_ago, des_ant, SI_ref=None, disturbance=None, 
-               end_ref=None, end_real=None):
-    '''
-    to plot the ff input, the fb input and the tracking performance in joint space
-    '''
+def wandb_plot(i_iter, period, t_stamp, ff, fb, y, theta_, t_stamp_list, theta_list, T_go_list, p_int_record, obs_ago, obs_ant, des_ago, des_ant, 
+               disturbance=None, end_ref=None, end_real=None):
+    
     plots = []
-    if (i_iter+1)%frequency==0:
+    if (i_iter+1)%period==0:
         legend_position = 'best'
+
+        ### to plot the ff input and the fb input
         fig1 = plt.figure(figsize=(18, 18))
 
         ax1_position0 = fig1.add_subplot(311)
@@ -49,6 +49,7 @@ def wandb_plot(i_iter, frequency, t_stamp, ff, fb, y, theta_, t_stamp_list, thet
         plt.suptitle('Pressure Input'+' Iter '+str(i_iter+1))
         plots.append(wandb.Image(plt, caption="matplotlib image"))                
 
+        ### to plot the tracking performance in joint space
         fig = plt.figure(figsize=(18, 18))
 
         ax_position0 = fig.add_subplot(311)
@@ -59,9 +60,6 @@ def wandb_plot(i_iter, frequency, t_stamp, ff, fb, y, theta_, t_stamp_list, thet
         line.append( line_temp )
         line_temp, = ax_position0.plot(t_stamp, theta_[0, :] * 180 / math.pi, linewidth=2, label=r'Pos_Dof0_des')
         line.append( line_temp )
-        if SI_ref is not None:
-            line_temp, = ax_position0.plot(t_stamp, SI_ref[0].reshape(-1) * 180 / math.pi, linewidth=1, linestyle=(0,(5,5)), label=r'Pos_Dof0_SI')
-            line.append( line_temp )
         for j in range(len(theta_list)):
             line_temp, = ax_position0.plot(t_stamp_list[j], theta_list[j][0, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,5)), label='Dof0_traj_candidate_'+str(j+1))
             line.append( line_temp )
@@ -77,9 +75,6 @@ def wandb_plot(i_iter, frequency, t_stamp, ff, fb, y, theta_, t_stamp_list, thet
         line.append( line_temp )
         line_temp, = ax_position1.plot(t_stamp, theta_[1, :] * 180 / math.pi, linewidth=2, label=r'Pos_Dof1_des')
         line.append( line_temp )
-        if SI_ref is not None:
-            line_temp, = ax_position1.plot(t_stamp, (SI_ref[1].reshape(-1) * 180 / math.pi +45), linewidth=1, linestyle=(0,(5,5)), label=r'Pos_Dof1_SI')
-            line.append( line_temp )
         for j in range(len(theta_list)):
             line_temp, = ax_position1.plot(t_stamp_list[j], theta_list[j][1, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,5)), label='Dof1_traj_candidate_'+str(j+1))
             line.append( line_temp )
@@ -95,9 +90,6 @@ def wandb_plot(i_iter, frequency, t_stamp, ff, fb, y, theta_, t_stamp_list, thet
         line.append( line_temp )
         line_temp, = ax_position2.plot(t_stamp, theta_[2, :] * 180 / math.pi, linewidth=2, label=r'Pos_Dof2_des')
         line.append( line_temp )
-        if SI_ref is not None:
-            line_temp, = ax_position2.plot(t_stamp, (SI_ref[2].reshape(-1) * 180 / math.pi + 40), linewidth=1, linestyle=(0,(5,5)), label=r'Pos_Dof2_SI')
-            line.append( line_temp )
         for j in range(len(theta_list)):
             line_temp, = ax_position2.plot(t_stamp_list[j], theta_list[j][2, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,5)), label='Dof2_traj_candidate_'+str(j+1))
             line.append( line_temp )
@@ -108,7 +100,7 @@ def wandb_plot(i_iter, frequency, t_stamp, ff, fb, y, theta_, t_stamp_list, thet
         plt.suptitle('Joint Space Trajectory Tracking Performance'+' Iter '+str(i_iter+1))
         plots.append(wandb.Image(plt, caption="matplotlib image"))
 
-        ### added pressure fig
+        ### to plot the desired pressures and the observed pressures
         fig2 = plt.figure(figsize=(18, 18))
 
         p_position0 = fig2.add_subplot(311)
@@ -156,7 +148,7 @@ def wandb_plot(i_iter, frequency, t_stamp, ff, fb, y, theta_, t_stamp_list, thet
         plt.suptitle('Pressures Monitoring'+' Iter '+str(i_iter+1))
         plots.append(wandb.Image(plt, caption="matplotlib image"))
 
-        ### to see the learned disturbances in ILC
+        ### to plot the learned disturbances
         if disturbance is not None:
             fig3 = plt.figure(figsize=(18, 18))
 
@@ -187,7 +179,7 @@ def wandb_plot(i_iter, frequency, t_stamp, ff, fb, y, theta_, t_stamp_list, thet
             plt.suptitle('Disturbance Visualization'+' Iter '+str(i_iter+1))
             plots.append(wandb.Image(plt, caption="matplotlib image"))   
 
-        ### to see the tracking performance in the Cartesian framework
+        ### to plot the tracking performance in the racket Cartesian space
         if end_ref is not None:
             fig4 = plt.figure(figsize=(18, 18))
             temp_idx = int(T_go_list[-1]*100)
@@ -239,7 +231,7 @@ def wandb_plot(i_iter, frequency, t_stamp, ff, fb, y, theta_, t_stamp_list, thet
             print('y position: {}'.format(loss_y*100))
             print('z position: {}'.format(loss_z*100))             
         
-        # wandb.log({'related plots': plots})
+        wandb.log({'visualization': plots})
         plt.close('all')
         
-        return plots
+        return

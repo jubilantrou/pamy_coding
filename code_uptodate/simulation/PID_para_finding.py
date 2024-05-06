@@ -1,30 +1,27 @@
 '''
-This script is used to decide the ultimate gain and the oscillation period 
-of each Dof, which can be used to find proper groups of PID parameters for 
+This script is used to find the ultimate gain and the oscillation period 
+of each DoF, which can be used to determine proper PID parameters for 
 the robot with the Ziegler-Nichols method.
 '''
 # %% import libraries
 import PAMY_CONFIG
 import math
-import os
 import matplotlib.pyplot as plt
 from get_handle import get_handle
 import o80_pam
-from RealRobotGeometry import RobotGeometry
 import scipy
-import numpy as np
 
 # %% set parameters
 obj = 'real' # for the simulator or the real robot
 choice = 1 # for which Dof to do the experiment
-amp = -10/180*math.pi # the increased amplitude of the input step signal based on the initial position
+amp = 10/180*math.pi # the increased amplitude of the input step signal based on the initial position
 t_start = 0.5 # the starting time of the step signal
 t_duration = 3.0 # the whole time length for recording and plotting
-mode1 = 'no overshoot' # the name of control type for Ziegler-Nichols method
+mode1 = 'no overshoot'
 mode2 = 'classic PID'
 mode3 = 'Pessen Integral Rule'
 mode4 = 'some overshoot'
-mode = [mode1, mode2, mode3, mode4]
+mode = [mode1, mode2, mode3, mode4] # the names of different control types for the Ziegler-Nichols method
 
 # %% initialize the chosen obj
 if obj=='sim':
@@ -35,18 +32,15 @@ elif obj=='real':
 else:
     raise ValueError('The variable obj needs to be assigned either as sim or as real!')
 
-print(PAMY_CONFIG.obj)
+if obj != PAMY_CONFIG.obj:
+    raise ValueError("Make sure the value of obj in PAMY_CONFIG is the same as the one we specify above!")
+
 Pamy = PAMY_CONFIG.build_pamy(frontend=frontend)
-RG = RobotGeometry()
 
 # %% create functions
-def mkdir(path):
-    folder = os.path.exists(path)
-    if not folder:
-        os.makedirs(path)
+def plot(t, ref, result, choice, peaks=None, p_ago=None, p_ant=None):
+    fig = plt.figure(figsize=(18, 36))
 
-def plot(t, ref, result, choice, p_ago=None, p_ant=None, peaks=None):
-    fig = plt.figure(figsize=(18, 18))
     ax_position0 = fig.add_subplot(121)
     plt.xlabel(r'Time in s')
     plt.ylabel(r'Position of Dof_' + str(choice) + 'in degree')
@@ -59,14 +53,16 @@ def plot(t, ref, result, choice, p_ago=None, p_ant=None, peaks=None):
         line_temp, = ax_position0.plot(t[peaks], result[peaks] * 180 / math.pi, 'x', label='output peaks detected')
         line.append( line_temp )
     
-    # ax_position1 = fig.add_subplot(122)
-    # plt.xlabel(r'Time in s')
-    # plt.ylabel(r'Pressure of Dof_' + str(choice))
-    # line = []
-    # line_temp, = ax_position1.plot(t, p_ago, linewidth=2, label='ago pressure')
-    # line.append( line_temp )
-    # line_temp, = ax_position1.plot(t, p_ant, linewidth=2, label='ant pressure')
-    # line.append( line_temp )
+    # plot the pressures for testing and debugging
+    if (p_ago is not None) and (p_ant is not None):
+        ax_position1 = fig.add_subplot(122)
+        plt.xlabel(r'Time in s')
+        plt.ylabel(r'Pressure of Dof_' + str(choice))
+        line = []
+        line_temp, = ax_position1.plot(t, p_ago, linewidth=2, label='ago pressure')
+        line.append( line_temp )
+        line_temp, = ax_position1.plot(t, p_ant, linewidth=2, label='ant pressure')
+        line.append( line_temp )
 
     plt.legend(handles=line, shadow=True)
     plt.grid()
@@ -94,27 +90,20 @@ def para_compute(Ku, Tu, mode):
 
 # %% run the main
 if __name__ == '__main__':
-    init = 1
+    option = 1 # choose option from {1, 2, 3}
 
-    if init==1:
-        # Pamy.AngleInitialization(PAMY_CONFIG.GLOBAL_INITIAL)
+    # option 1: initialize
+    # TODO: need to adjust the robot manually to its desired initial position 
+    # after pressure initialization before starting the follow-up process
+    if option==1:
         Pamy.PressureInitialization(duration=1)
-        print(np.array(frontend.latest().get_positions())/math.pi*180)
-        print(frontend.latest().get_observed_pressures())
-        print(PAMY_CONFIG.pressure_limit)
-    
-    elif init==2:
-        Ku = 4900
-        Tu = 0.92
 
-        for m in mode:
-            print('computation method: {}'.format(m))
-            print('P, I, D: {}'.format(para_compute(Ku,Tu,m)))
-
-    else:
-        Pamy.PressureInitialization(duration=4)
+    # option 2: tune parameters to find the ultimate gain and the oscillation period
+    elif option==2:
         (t, step, position) = Pamy.PIDTesting(choice = choice, amp = amp, t_start = t_start, t_duration = t_duration)
 
+        # if the response if ready for computing the oscillation period
+        # can also compute the oscillation period manually according to the got plot
         ready_to_process = 0
         peaks = None
         if ready_to_process:
@@ -138,4 +127,12 @@ if __name__ == '__main__':
         plot(t, step, position, choice, peaks)
 
         Pamy.PressureInitialization(duration=4)
-        # TODO: do the following procedure via scripts
+    
+    # option 3: compute PID parameters using the formulas
+    elif option==3:
+        Ku = 4900 # the ultimate gain
+        Tu = 0.92 # the oscillation period
+
+        for m in mode:
+            print('computation method: {}'.format(m))
+            print('P, I, D: {}'.format(para_compute(Ku,Tu,m)))

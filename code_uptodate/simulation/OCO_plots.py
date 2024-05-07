@@ -60,6 +60,9 @@ def wandb_plot(i_iter, period, t_stamp, ff, fb, y, theta_, t_stamp_list, theta_l
         line.append( line_temp )
         line_temp, = ax_position0.plot(t_stamp, theta_[0, :] * 180 / math.pi, linewidth=2, label=r'Pos_Dof0_des')
         line.append( line_temp )
+        if len(theta_list)==0:
+            line_temp, = ax_position0.plot(T_go_list[0], p_int_record[0][0] * 180 / math.pi, 'o', label='target')
+            line.append( line_temp )
         for j in range(len(theta_list)):
             line_temp, = ax_position0.plot(t_stamp_list[j], theta_list[j][0, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,5)), label='Dof0_traj_candidate_'+str(j+1))
             line.append( line_temp )
@@ -75,6 +78,9 @@ def wandb_plot(i_iter, period, t_stamp, ff, fb, y, theta_, t_stamp_list, theta_l
         line.append( line_temp )
         line_temp, = ax_position1.plot(t_stamp, theta_[1, :] * 180 / math.pi, linewidth=2, label=r'Pos_Dof1_des')
         line.append( line_temp )
+        if len(theta_list)==0:
+            line_temp, = ax_position1.plot(T_go_list[0], p_int_record[0][1] * 180 / math.pi, 'o', label='target')
+            line.append( line_temp )
         for j in range(len(theta_list)):
             line_temp, = ax_position1.plot(t_stamp_list[j], theta_list[j][1, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,5)), label='Dof1_traj_candidate_'+str(j+1))
             line.append( line_temp )
@@ -90,6 +96,9 @@ def wandb_plot(i_iter, period, t_stamp, ff, fb, y, theta_, t_stamp_list, theta_l
         line.append( line_temp )
         line_temp, = ax_position2.plot(t_stamp, theta_[2, :] * 180 / math.pi, linewidth=2, label=r'Pos_Dof2_des')
         line.append( line_temp )
+        if len(theta_list)==0:
+            line_temp, = ax_position2.plot(T_go_list[0], p_int_record[0][2] * 180 / math.pi, 'o', label='target')
+            line.append( line_temp )
         for j in range(len(theta_list)):
             line_temp, = ax_position2.plot(t_stamp_list[j], theta_list[j][2, :] * 180 / math.pi, linewidth=2, linestyle=(0,(5,5)), label='Dof2_traj_candidate_'+str(j+1))
             line.append( line_temp )

@@ -262,12 +262,12 @@ class RobotGeometry:
             theta_final: transformed positions of all DoFs at different time points with all updates included, for the joint space
             t_stamp_final: an array storing all the time stamps got from spacing the entire duration evenly using the control period
             vel: the finally used target linear velocity of the ball after the interception 
-            theta_list: a list with each element storing the joint space positions of each planning
-            t_stamp_list: a list with each element storing the time stamps of each planning
-            p_int_record: a list with each element storing the target interception position of each planning
-            T_go_list: a list with each element storing the target interception time point of each planning
-            time_update_record: a list storing the number of how many time steps of each planning are included in the final trajectory
-            update_point_index_list: a list storing the accumulated number in time_update_record, indicating in which time stamps updates happen
+            theta_list: a list with each element storing the joint space positions of each replanning
+            t_stamp_list: a list with each element storing the time stamps of each replanning
+            p_int_record: a list with each element storing the target interception position of each replanning
+            T_go_list: a list with each element storing the target interception time point of each replanning
+            time_update_record: a list storing the number of how many time steps of each replanning are included in the final trajectory, i.e. recording the local time stamp of each replanning when the update happens
+            update_point_index_list: a list storing the accumulated number in time_update_record, i.e. recording the global time stamps of the final updated planning when the updates happen
         '''
         # below lists used to store the full results of each replanning
         p_list = []

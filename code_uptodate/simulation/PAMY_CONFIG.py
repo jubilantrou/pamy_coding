@@ -19,11 +19,11 @@ def FulfillZeros( a ):
 # %%
 # TODO: need to update the SI parameters and the PID for the simulator, 
 # which are not double checked as there are a bug in the DoF1 of the simulator
-obj = 'real'
+obj = 'sim'
 
 # values of GLOBAL_INITIAL are absolute values in joint space in rad
 if obj=='sim':
-    GLOBAL_INITIAL = np.array([0, 0.8, 0, 0])
+    GLOBAL_INITIAL = np.array([0, 70/180*math.pi, 10/180*math.pi, 0])
 elif obj=='real':
     GLOBAL_INITIAL = np.array([0, 60/180*math.pi, 40/180*math.pi, 0]) # adapted from np.array([0, 45/180*math.pi, 40/180*math.pi, 0])
 

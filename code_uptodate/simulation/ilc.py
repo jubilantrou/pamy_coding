@@ -1,3 +1,5 @@
+# TODO: need to tune related parameters for better performance of ILC, 
+# and here we just use previous parameters to get a feeling from ILC's control inputs
 '''
 This script is used to train PAMY2 with ILC.
 '''
@@ -11,17 +13,32 @@ import time
 from OCO_utils import *
 from RealRobotGeometry import RobotGeometry
 import wandb
+from get_handle import get_handle
 
 # %% set parameters and initialize the robot
-number_iteration = 35
+obj              = 'sim'
+number_iteration = 30
 root             = os.getcwd()
 root_data        = os.path.join(root, 'data', 'ilc_with_increased_speed')
 mkdir(root_data)
 
-frontend         = o80_pam.FrontEnd("real_robot")
-Pamy             = PAMY_CONFIG.build_pamy(frontend=frontend)
+if obj=='sim':
+    handle   = get_handle()
+    frontend = handle.frontends["robot"]
+elif obj=='real':
+    frontend = o80_pam.FrontEnd("real_robot")
+else:
+    raise ValueError('The variable obj needs to be assigned either as sim or as real!')
 
-Pamy.LQITesting(t_start = 0.0, t_duration = 5.0)
+if obj != PAMY_CONFIG.obj:
+    raise ValueError("Make sure the value of obj in PAMY_CONFIG is the same as the one we specify above!")
+
+Pamy = PAMY_CONFIG.build_pamy(frontend=frontend)
+
+if obj=='sim':
+    Pamy.AngleInitialization(PAMY_CONFIG.GLOBAL_INITIAL)
+else:
+    Pamy.LQITesting(t_start = 0.0, t_duration = 5.0)
 Pamy.PressureInitialization()
 angle_initial_read = np.array(frontend.latest().get_positions())
 
@@ -32,8 +49,7 @@ wandb.init(
 )
 
 fix_seed(3154)
-index_list = []
-[index_list.append(count) for count in range(60)]
+index_list = [0]
 
 for index in index_list:
     '''
@@ -57,39 +73,44 @@ for index in index_list:
     ### the 2nd and the 3rd step
     Pamy.GetOptimizer(angle_initial_read, total_iteration=number_iteration, mode_name='none')
 
+    # (y_history, repeated, ff_history, disturbance_history, \
+    # P_history, d_lifted_history, P_lifted_history, \
+    # fb_history, ago_history, ant_history, y_pid) = Pamy.ILC(number_iteration=number_iteration, 
+    #                                                         GLOBAL_INITIAL=PAMY_CONFIG.GLOBAL_INITIAL,
+    #                                                         mode_name='none', ref_traj=theta_, T_go=t, p_int=angle)
     (y_history, repeated, ff_history, disturbance_history, \
     P_history, d_lifted_history, P_lifted_history, \
     fb_history, ago_history, ant_history, y_pid) = Pamy.ILC(number_iteration=number_iteration, 
                                                             GLOBAL_INITIAL=PAMY_CONFIG.GLOBAL_INITIAL,
-                                                            mode_name='none', ref_traj=theta_, T_go=T_go_list[-1])
+                                                            mode_name='none', ref_traj=theta_, T_go=T_go_list[-1], p_int=p_int_record[-1])
 
     ### save useful results
-    T = t_stamp[-1] - 1.5
-    T_back = 1.35
-    T_steady = 0.15
-    t_list = np.array([0, T, T+T_back, T+T_back+T_steady])
+    # T = t_stamp[-1] - 1.5
+    # T_back = 1.35
+    # T_steady = 0.15
+    # t_list = np.array([0, T, T+T_back, T+T_back+T_steady])
 
-    root_file = root_data + '/' + str(index)
-    file = open(root_file, 'wb')
-    # pickle.dump(t_stamp, file, -1) # time stamp for x-axis
-    # pickle.dump(angle_initial_read, file, -1)
-    # pickle.dump(y_history, file, -1)
-    # pickle.dump(repeated, file, -1)
-    # pickle.dump(y_pid, file, -1)
-    # pickle.dump(ff_history, file, -1)
-    # pickle.dump(fb_history, file, -1)
-    # pickle.dump(ago_history, file, -1)
-    # pickle.dump(ant_history, file, -1)
-    # pickle.dump(disturbance_history, file, -1)
-    # pickle.dump(P_history, file, -1)
-    # pickle.dump(d_lifted_history, file, -1)
-    # pickle.dump(P_lifted_history, file, -1)
-    pickle.dump(Pamy.y_desired.shape[1], file, -1)
-    pickle.dump(Pamy.y_desired, file, -1)
-    pickle.dump(disturbance_history[-1], file, -1)
-    pickle.dump(ff_history[-1], file, -1)
-    pickle.dump(t_list, file, -1)
-    file.close()
+    # root_file = root_data + '/' + str(index)
+    # file = open(root_file, 'wb')
+    # # pickle.dump(t_stamp, file, -1) # time stamp for x-axis
+    # # pickle.dump(angle_initial_read, file, -1)
+    # # pickle.dump(y_history, file, -1)
+    # # pickle.dump(repeated, file, -1)
+    # # pickle.dump(y_pid, file, -1)
+    # # pickle.dump(ff_history, file, -1)
+    # # pickle.dump(fb_history, file, -1)
+    # # pickle.dump(ago_history, file, -1)
+    # # pickle.dump(ant_history, file, -1)
+    # # pickle.dump(disturbance_history, file, -1)
+    # # pickle.dump(P_history, file, -1)
+    # # pickle.dump(d_lifted_history, file, -1)
+    # # pickle.dump(P_lifted_history, file, -1)
+    # pickle.dump(Pamy.y_desired.shape[1], file, -1)
+    # pickle.dump(Pamy.y_desired, file, -1)
+    # pickle.dump(disturbance_history[-1], file, -1)
+    # pickle.dump(ff_history[-1], file, -1)
+    # pickle.dump(t_list, file, -1)
+    # file.close()
 
     angle_initial_read =np.array(frontend.latest().get_positions())
 

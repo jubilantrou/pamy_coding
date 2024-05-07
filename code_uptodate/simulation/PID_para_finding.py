@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from get_handle import get_handle
 import o80_pam
 import scipy
+import numpy as np
 
 # %% set parameters
 obj = 'real' # for the simulator or the real robot
@@ -39,9 +40,12 @@ Pamy = PAMY_CONFIG.build_pamy(frontend=frontend)
 
 # %% create functions
 def plot(t, ref, result, choice, peaks=None, p_ago=None, p_ant=None):
-    fig = plt.figure(figsize=(18, 36))
+    fig = plt.figure(figsize=(18, 18))
 
-    ax_position0 = fig.add_subplot(121)
+    if (p_ago is None) and (p_ant is None):
+        ax_position0 = fig.add_subplot(111)
+    else:
+        ax_position0 = fig.add_subplot(121)
     plt.xlabel(r'Time in s')
     plt.ylabel(r'Position of Dof_' + str(choice) + 'in degree')
     line = []
@@ -102,27 +106,27 @@ if __name__ == '__main__':
     elif option==2:
         (t, step, position) = Pamy.PIDTesting(choice = choice, amp = amp, t_start = t_start, t_duration = t_duration)
 
-        # if the response if ready for computing the oscillation period
-        # can also compute the oscillation period manually according to the got plot
+        # ready_to_process indicates if the response is ready for computing the oscillation period, 
+        # which is now computed by manual measurement from the got plot
         ready_to_process = 0
         peaks = None
-        if ready_to_process:
-            peaks, _ = scipy.signal.find_peaks(position)
-            num_peaks_taken = 3
-            Tu = (t[peaks[0+num_peaks_taken]]-t[peaks[0]])/num_peaks_taken
-            print('Tu: {}'.format(Tu))
+        # if ready_to_process:
+        #     peaks, _ = scipy.signal.find_peaks(position)
+        #     num_peaks_taken = 3
+        #     Tu = (t[peaks[0+num_peaks_taken]]-t[peaks[0]])/num_peaks_taken
+        #     print('Tu: {}'.format(Tu))
 
-            print('computation method: {}'.format(mode1))
-            print('P, I, D: {}'.format(para_compute(Pamy.pid_list[choice,0],Tu,mode1)))
+        #     print('computation method: {}'.format(mode1))
+        #     print('P, I, D: {}'.format(para_compute(Pamy.pid_list[choice,0],Tu,mode1)))
 
-            print('computation method: {}'.format(mode2))
-            print('P, I, D: {}'.format(para_compute(Pamy.pid_list[choice,0],Tu,mode2)))
+        #     print('computation method: {}'.format(mode2))
+        #     print('P, I, D: {}'.format(para_compute(Pamy.pid_list[choice,0],Tu,mode2)))
 
-            print('computation method: {}'.format(mode3))
-            print('P, I, D: {}'.format(para_compute(Pamy.pid_list[choice,0],Tu,mode3)))
+        #     print('computation method: {}'.format(mode3))
+        #     print('P, I, D: {}'.format(para_compute(Pamy.pid_list[choice,0],Tu,mode3)))
 
-            print('computation method: {}'.format(mode4))
-            print('P, I, D: {}'.format(para_compute(Pamy.pid_list[choice,0],Tu,mode3)))
+        #     print('computation method: {}'.format(mode4))
+        #     print('P, I, D: {}'.format(para_compute(Pamy.pid_list[choice,0],Tu,mode3)))
 
         plot(t, step, position, choice, peaks)
 

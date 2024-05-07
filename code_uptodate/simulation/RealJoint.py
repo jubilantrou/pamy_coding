@@ -1,7 +1,7 @@
 '''
-This script is used to save the inverse model information for each DoF, 
-which support computing desired feedforward inputs from the reference trajectory 
-but are not used in the procedure yet.
+This script is used to save the inverse model information for each DoF, which support 
+computing desired feedforward inputs from the reference trajectory directly
+but are not used in our procedure yet.
 '''
 import numpy as np
 

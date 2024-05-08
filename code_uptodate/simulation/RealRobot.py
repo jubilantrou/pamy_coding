@@ -11,7 +11,6 @@ from RealGenerateMatrices import Filter
 import time
 from threading import Thread
 import multiprocessing as mp
-from FastLCNN import LCNN
 import torch
 import scipy
 from OCO_plots import *
@@ -69,9 +68,6 @@ class Robot:
         self.weight_list = weight_list
         # define four joints
         self.Joint_list = []
-        '''
-        Each dof can be seen as independent.
-        '''
         for dof in self.dof_list:
             Joint_temp = Joint(self.frontend, self.dof_list[dof], self.anchor_ago_list[dof], self.anchor_ant_list[dof], 
                                self.inverse_model_num[dof, :], self.inverse_model_den[dof, :],
@@ -97,7 +93,7 @@ class Robot:
         #                                   [-30000, 0, -300],
         #                                   [-5000, -8000, -100],
         #                                   [3.422187330173758e+04, 1.673663594798479e+05 / 10, 73.238165769446297]])
-        # self.pid_for_tracking = 0.6*np.array([[-10000,  0, -260],
+        # self.pid_for_tracking = 0.8*np.array([[-10000,  0, -260],
         #                                       [-10500,  0, -525],
         #                                       [-18000,  0, -875],
         #                                       [-12000, 0, -1000]]) # tuned PD for the simulator
@@ -133,43 +129,40 @@ class Robot:
     
     def GetOptimizer(self, angle_initial, total_iteration=40, mode_name='none'):
         '''
-        y_desired:       relative desired trajectories
-        t_stamp:         time stamp for the trajectories
         angle_initial:   initial angles
         total_iteration: the number of iterations for ILC
         mode_name:       training mode
                          'none' - train without feedback inputs
                          'pd'   - train with pd controller
-
-        y_desired + angle_initial = absolute trajectory
         '''
         self.Optimizer_list = []
         for dof in self.dof_list:
             Optimizer = Filter(dof, self.y_desired[dof, :], self.v_desired[dof, :], self.a_desired[dof, :], self.j_desired[dof, :], self.y_desired.shape[1],
-                                    self.pressure_min[dof], self.pressure_max[dof], self.model_num[dof, :], self.model_den[dof, :], self.model_num_order[dof],
-                                    self.model_den_order[dof], self.model_ndelay_list[dof], angle_initial, total_iteration=total_iteration)
+                                    self.pressure_min[dof], self.pressure_max[dof],
+                                    self.model_num[dof, :], self.model_den[dof, :], self.model_num_order[dof], self.model_den_order[dof], self.model_ndelay_list[dof],
+                                    angle_initial, total_iteration=total_iteration)
             Optimizer.GenerateGlobalMatrix(mode_name)
             self.Optimizer_list.append(Optimizer)
-    
-    
-    def get_Xi(self, h_in_left=100, h_in_right=100):
-
-        def get_compensated_data(data=None):
-            # I = np.zeros((3, h_in_left))
-            I_left = np.tile(data[:, 0].reshape(-1, 1), (1, h_in_left))
-            I_right = np.tile(data[:, -1].reshape(-1, 1), (1, h_in_right))
-            new_data = np.hstack((I_left, data, I_right))
-            return new_data
+        
+    # def get_Xi(self, h_in_left=100, h_in_right=100):
+    #     '''
+    #     This function is used to get the data matrix Xi,
+    #     which is described in Fig. 9 of Hao's RSS paper.
+    #     '''
+    #     def get_compensated_data(data=None):
+    #         I_left = np.tile(data[:, 0].reshape(-1, 1), (1, h_in_left))
+    #         I_right = np.tile(data[:, -1].reshape(-1, 1), (1, h_in_right))
+    #         new_data = np.hstack((I_left, data, I_right))
+    #         return new_data
           
-        y_comp = get_compensated_data(self.y_desired[0:3, :])
-        Xi = np.zeros((self.y_desired.shape[1], 3*(h_in_left+h_in_right+1)+1))
+    #     y_comp = get_compensated_data(self.y_desired[0:3, :])
+    #     Xi = np.zeros((self.y_desired.shape[1], 3*(h_in_left+h_in_right+1)+1))
     
-        for k in range(self.y_desired.shape[1]):
-            Xi[k, :] = np.hstack((y_comp[0, k:k+2*h_in_left+1], y_comp[1, k:k+2*h_in_left+1], y_comp[2, k:k+2*h_in_left+1], 1))
+    #     for k in range(self.y_desired.shape[1]):
+    #         Xi[k, :] = np.hstack((y_comp[0, k:k+2*h_in_left+1], y_comp[1, k:k+2*h_in_left+1], y_comp[2, k:k+2*h_in_left+1], 1))
 
-        return Xi
-    
-    
+    #     return Xi
+        
     def GetOptimizer_convex(self, angle_initial, h=100, nr_channel=1, mode_name='none', coupling='no', learning_mode='b', Bu_mode='calculation'):
         '''
         y_desired:       relative desired trajectories
@@ -219,15 +212,16 @@ class Robot:
             # self.Xi_list.append(Xi)
             
     def ImportTrajectory(self, y_desired, t_stamp):
+        '''
+        This function is used to update the desired trjectories of the robot,
+        which should be relative trajectories.
+        '''
         def get_difference(x):
             y = np.zeros(x.shape)
             for i in range(1, y.shape[1]):
                 y[:, i] = (x[:, i]-x[:, i-1])/(t_stamp[i]-t_stamp[i-1])
             return y
-        '''
-        This function is used to update the desired trjectories of the Robot.
-        The desired trajectories should be relative trajectories.
-        '''
+        
         self.y_desired = np.copy(y_desired)
         self.v_desired = get_difference(self.y_desired)
         self.a_desired = get_difference(self.v_desired)
@@ -525,18 +519,23 @@ class Robot:
          
     def PressureInitialization(self, times=1, duration=1):
         for _ in range(times):
-            # creating a command locally. The command is *not* sent to the robot yet.
+            # create a command locally, which is not sent to the robot yet
             self.frontend.add_command(self.anchor_ago_list, self.anchor_ant_list,
                                       o80.Duration_us.seconds(duration),
                                       o80.Mode.QUEUE)
-            # sending the command to the robot, and waiting for its completion.
+            # send the command to the robot, and wait for its completion
             self.frontend.pulse_and_wait()
             time.sleep(duration)
-        # for dof in self.dof_list:
-        #     print("the {}. ago/ant pressure is: {:.2f}/{:.2f}".format(dof, pressures[dof, 0], pressures[dof, 1]) )
 
-    def AngleInitialization(self, angle, tolerance_list=[0.1,0.1,0.1,1.0], 
-                            frequency_frontend=100, frequency_backend=500):        
+    # TODO: functions like Control() above, PIDTesting() below and so on have some common parts, for example the codes to
+    # send commands to the frontend, which should be reformmatted as independent functions later, not only avoiding duplicate
+    # codes but also ensuring the consistency
+    
+    def AngleInitialization(self, angle, tolerance_list=[0.1,0.1,0.1,1.0], frequency_frontend=100, frequency_backend=500):
+        '''
+        This function can achieve set point tracking using PID controller, in order to 
+        set the real robot or the simulator at its desired initial position.
+        '''        
         pid = np.copy( self.pid_list )
         tolerance_list = np.array(tolerance_list)
         theta = self.frontend.latest().get_positions()
@@ -548,35 +547,23 @@ class Robot:
         t = 1 / frequency_frontend
         iterations_per_command = int( period_frontend / period_backend )
 
-        iteration = self.frontend.latest().get_iteration() + 500  # set the iteration when beginning
+        iteration = self.frontend.latest().get_iteration() + 500  # set the beginning iteration
         
         self.frontend.add_command(self.anchor_ago_list, self.anchor_ant_list,
                                   o80.Iteration(iteration-iterations_per_command),
-                                  o80.Mode.QUEUE)
-        
+                                  o80.Mode.QUEUE)        
         self.frontend.pulse()
-        # do not consider the last dof
-        # while 1:
-        while not (abs((theta[0:3] - angle[0:3])*180/math.pi) < tolerance_list[0:3]).all():
-            
-            # if (abs((theta[0:3] - angle[0:3])*180/math.pi) < tolerance_list[0:3]).all():
-            #     time.sleep(0.1)
-            #     theta = self.frontend.latest().get_positions()
-            #     if (abs((theta[0:3] - angle[0:3])*180/math.pi) < tolerance_list[0:3]).all():
-            #         print('current pressures')
-            #         print(self.frontend.latest().get_desired_pressures())
-            #         break
 
+        while not (abs((theta[0:3] - angle[0:3])*180/math.pi) < tolerance_list[0:3]).all():
             # all following vectors must be column vectors
             angle_delta = (angle - theta).reshape(len(self.dof_list), -1)
             res_d = ( angle_delta - angle_delta_pre ) / t
             res_i += angle_delta * t
+            angle_delta_pre = np.copy( angle_delta )
 
             feedback = pid[:, 0].reshape(len(self.dof_list), -1) * angle_delta\
                      + pid[:, 1].reshape(len(self.dof_list), -1) * res_i\
                      + pid[:, 2].reshape(len(self.dof_list), -1) * res_d
-            
-            angle_delta_pre = np.copy( angle_delta )
 
             pressure_ago = np.array([], dtype=int)
             pressure_ant = np.array([], dtype=int)
@@ -584,23 +571,20 @@ class Robot:
             for dof in self.dof_list:
                 diff = feedback[dof]
                 pressure_ago = np.append(pressure_ago, int( self.anchor_ago_list[dof] + diff ))
-                pressure_ant = np.append(pressure_ant, int( self.anchor_ant_list[dof] - diff ))
-            
-            # do not control the last dof
+                pressure_ant = np.append(pressure_ant, int( self.anchor_ant_list[dof] - diff ))            
+            # do not control the last DoF for now
             pressure_ago[3] = self.anchor_ago_list[3]
             pressure_ant[3] = self.anchor_ant_list[3]
 
             self.frontend.add_command(pressure_ago, pressure_ant,
                                       o80.Iteration(iteration),
-                                      o80.Mode.QUEUE)
-    
+                                      o80.Mode.QUEUE)    
             self.frontend.pulse()
-
             self.frontend.add_command(pressure_ago, pressure_ant,
                                       o80.Iteration(iteration + iterations_per_command - 1),
                                       o80.Mode.QUEUE)
-
             observation = self.frontend.pulse_and_wait()
+
             # update the angles
             theta = np.array(observation.get_positions())
 
@@ -612,7 +596,7 @@ class Robot:
     
     def PIDTesting(self, choice, amp, t_start, t_duration, frequency_frontend=100, frequency_backend=500):
         '''
-        This function gives a step signal to the object to help with finding proper PID parameters, 
+        This function gives a step signal to the real robot or the simulator to help finding proper PID parameters, 
         with modification based on the function AngleInitialization() above.
         '''
         pid = np.copy( self.pid_list )
@@ -622,17 +606,16 @@ class Robot:
         t = 1 / frequency_frontend
         iterations_per_command = int( period_frontend / period_backend )
 
-        self.PressureInitialization()
-
         iteration = self.frontend.latest().get_iteration() + 200
         iteration_begin = iteration
+
         self.frontend.add_command(self.anchor_ago_list, self.anchor_ant_list,
                                   o80.Iteration(iteration-iterations_per_command),
                                   o80.Mode.QUEUE)
         obs_begin = self.frontend.pulse_and_wait()
+
         theta = obs_begin.get_positions()
-        theta_begin = np.copy(theta)
-        
+        theta_begin = np.copy(theta)        
         res_i = 0
         angle_delta_pre = 0
 
@@ -667,15 +650,15 @@ class Robot:
             observation = self.frontend.pulse_and_wait()
 
             theta = np.array(observation.get_positions())
+
             iteration += iterations_per_command
             count += 1
 
-        iteration_end = iteration
-            
+        iteration_end = iteration            
         time = np.array([])
         position = np.array([])
-
         iteration = iteration_begin
+
         while iteration < iteration_end:
             observation = self.frontend.read(iteration)
             obs_position = np.array( observation.get_positions() )
@@ -687,38 +670,51 @@ class Robot:
             iteration += iterations_per_command
         
         time = time-time[0]
+
         return time, input, position
     
-    def LQRTesting(self, amp, t_start, t_duration, frequency_frontend=100, frequency_backend=500):
-        lqr = np.copy( self.lqi_k )
-        m = self.m_4_y
-        n = self.n_4_u
+    def LQITesting(self, t_start, t_duration, amp=None, angle_init=True, frequency_frontend=100, frequency_backend=500):
+        # TODO: need to adapt the function name as we will use it a lot for angle initialization, 
+        # or to integrate it with AngleInitialization() to offer two options for angle initialization, 
+        # using PID or LQI controller
+        '''
+        This function can achieve set point tracking using LQI controller (can refer to the MATLAB documentation for lqi), 
+        often used to set the real robot or the simulator to its desired initial position.
+        '''
+        lqi = np.copy( self.lqi_k )
+        m = self.m_4_y # how many previous states are included in the stacked state
+        n = self.n_4_u # how many previous inputs are included in the stacked state
 
         period_backend = 1.0 / frequency_backend
         period_frontend = 1.0 / frequency_frontend
         t = 1 / frequency_frontend
         iterations_per_command = int( period_frontend / period_backend )
 
-        # self.PressureInitialization()
-
         iteration = self.frontend.latest().get_iteration() + 500
         iteration_begin = iteration
+
         self.frontend.add_command(self.anchor_ago_list, self.anchor_ant_list,
                                   o80.Iteration(iteration-iterations_per_command),
                                   o80.Mode.QUEUE)
         obs_begin = self.frontend.pulse_and_wait()
+
         theta = np.array(obs_begin.get_positions())
         theta_begin = np.copy(theta)
 
-        amp = np.array([[0],[60],[40]])/180*math.pi - theta_begin.reshape(4,1)[0:3]
+        if amp is None:
+            if angle_init:
+                amp = PAMY_CONFIG.GLOBAL_INITIAL[0:3].reshape(3,1) - theta_begin.reshape(4,1)[0:3]
+            else:
+                raise ValueError('The variable amp can not be None when the variable angle_init is False!')
 
         count = 0
-        input = np.array([])
-        compute_diff = np.array([])
-        x_in = np.zeros((3*(m+n),1))
-        x_e = 0.01*(amp - x_in[(3*m-3):3*m])
-        cur_states = [0.0] * (3*m)
-        delta_pressures = [0.0] * (3*n)
+        input = np.array([]) # to store the reference trajectory as the input signal
+        compute_diff = np.array([]) # to store the computed feedforward control inputs
+        x_in = np.zeros((3*(m+n),1)) # the stacked state
+        x_e = 0.01*(amp - x_in[(3*m-3):3*m]) # the integrator output
+        cur_states = [0.0] * (3*m) # the states part in the stacked state
+        delta_pressures = [0.0] * (3*n) # the inputs part in the stacked state
+
         while count < t_duration*frequency_frontend:
             if count < t_start*frequency_frontend:
                 target = theta_begin.reshape(-1)[0:3]
@@ -727,7 +723,7 @@ class Robot:
             input = np.append(input, target.reshape(-1))
 
             x_aug = np.concatenate((x_in,x_e),axis=0)
-            feedback = -lqr@x_aug
+            feedback = -lqi@x_aug
             compute_diff = np.append(compute_diff, feedback.reshape(-1))
             
             pressure_ago = [int(self.anchor_ago_list[i]+feedback[i,0]) if i<3 else self.anchor_ago_list[i] for i in self.dof_list]
@@ -743,101 +739,30 @@ class Robot:
             observation = self.frontend.pulse_and_wait()
 
             theta = np.array(observation.get_positions())
+
             iteration += iterations_per_command
             count += 1
             
+            # update the states part in the stacked state
             update_states = theta.reshape(-1)-theta_begin.reshape(-1)
             [cur_states.append(update_states.tolist()[i]) for i in range(3)]
             [cur_states.pop(0) for i in range(3)]
+            # update the inputs part in the stacked state
             [delta_pressures.append(feedback.reshape(-1).tolist()[i]) for i in range(3)]
             [delta_pressures.pop(0) for i in range(3)]
+            # update the stacked state
             x_in = np.concatenate((np.array(cur_states).reshape(3*m,1),np.array(delta_pressures).reshape(3*n,1)),axis=0)
+            # update the integrator output
             x_e = x_e + 0.01*(amp - x_in[(3*m-3):3*m])
 
-        iteration_end = iteration
-            
+        if angle_init and (amp is None):
+            return
+
+        iteration_end = iteration            
         time = np.array([])
         position = np.array([])
-
         iteration = iteration_begin
-        while iteration < iteration_end:
-            observation = self.frontend.read(iteration)
-            obs_position = np.array( observation.get_positions() )
-            obs_time = np.array( observation.get_time_stamp() )*1e-9
 
-            position = np.append(position, obs_position.reshape(-1)[0:3])
-            time = np.append(time, obs_time)
-
-            iteration += iterations_per_command
-        
-        time = time-time[0]
-        
-        return time, input, position, compute_diff, theta_begin.reshape(-1)
-    
-    def LQRTrackingTesting(self, amp, frequency_frontend=100, frequency_backend=500):
-        lqr = np.copy( self.lqi_k_tracking )
-        m = self.m_4_y
-        n = self.n_4_u
-
-        period_backend = 1.0 / frequency_backend
-        period_frontend = 1.0 / frequency_frontend
-        t = 1 / frequency_frontend
-        iterations_per_command = int( period_frontend / period_backend )
-
-        iteration = self.frontend.latest().get_iteration() + 500
-        iteration_begin = iteration
-        self.frontend.add_command(self.anchor_ago_list, self.anchor_ant_list,
-                                  o80.Iteration(iteration-iterations_per_command),
-                                  o80.Mode.QUEUE)
-        obs_begin = self.frontend.pulse_and_wait()
-        theta = np.array(obs_begin.get_positions())
-        theta_begin = np.copy(theta)
-
-        count = 0
-        input = np.array([])
-        compute_diff = np.array([])
-        x_in = np.zeros((3*(m+n),1))
-        x_e = 0.01*(np.array([[0],[0],[0]]) - x_in[(3*m-3):3*m])
-        cur_states = [0.0] * (3*m)
-        delta_pressures = [0.0] * (3*n)
-        while count < amp.shape[1]:
-            input = np.append(input, theta_begin.reshape(-1)[0:3] + amp[0:3,count].reshape(-1))
-
-            x_aug = np.concatenate((x_in,x_e),axis=0)
-            feedback = -lqr@x_aug
-            compute_diff = np.append(compute_diff, feedback.reshape(-1))
-            
-            pressure_ago = [int(self.anchor_ago_list[i]+feedback[i,0]) if i<3 else self.anchor_ago_list[i] for i in self.dof_list]
-            pressure_ant = [int(self.anchor_ant_list[i]-feedback[i,0]) if i<3 else self.anchor_ant_list[i] for i in self.dof_list]
-            
-            self.frontend.add_command(pressure_ago, pressure_ant,
-                                      o80.Iteration(iteration),
-                                      o80.Mode.QUEUE)    
-            self.frontend.pulse()
-            self.frontend.add_command(pressure_ago, pressure_ant,
-                                      o80.Iteration(iteration + iterations_per_command - 1),
-                                      o80.Mode.QUEUE)
-            observation = self.frontend.pulse_and_wait()
-
-            theta = np.array(observation.get_positions())
-            iteration += iterations_per_command
-            count += 1
-            
-            if count < amp.shape[1]:
-                update_states = theta.reshape(-1)-theta_begin.reshape(-1)
-                [cur_states.append(update_states.tolist()[i]) for i in range(3)]
-                [cur_states.pop(0) for i in range(3)]
-                [delta_pressures.append(feedback.reshape(-1).tolist()[i]) for i in range(3)]
-                [delta_pressures.pop(0) for i in range(3)]
-                x_in = np.concatenate((np.array(cur_states).reshape(3*m,1),np.array(delta_pressures).reshape(3*n,1)),axis=0)
-                x_e = x_e + 0.01*(amp[0:3,count].reshape(3,1) - x_in[(3*m-3):3*m])
-
-        iteration_end = iteration
-            
-        time = np.array([])
-        position = np.array([])
-
-        iteration = iteration_begin
         while iteration < iteration_end:
             observation = self.frontend.read(iteration)
             obs_position = np.array( observation.get_positions() )
@@ -853,6 +778,10 @@ class Robot:
         return time, input, position, compute_diff, theta_begin.reshape(-1)
     
     def LQRTestingFollowup(self, tar, t_duration, frequency_frontend=100, frequency_backend=500):
+        '''
+        This function can regulate the real robot or the simulator to its set initial position using LQR controller, 
+        with modification based on the function LQITesting() above.
+        '''
         lqr = np.copy( self.lqr_k )
         m = self.m_4_y
         n = self.n_4_u
@@ -864,17 +793,18 @@ class Robot:
 
         iteration = self.frontend.latest().get_iteration() + 500
         iteration_begin = iteration
+
         pressure_read = np.array(self.frontend.latest().get_observed_pressures())
         self.frontend.add_command(pressure_read[:,0], pressure_read[:,1],
                                   o80.Iteration(iteration-iterations_per_command),
-                                  o80.Mode.QUEUE)
+                                  o80.Mode.QUEUE)        
         obs_begin = self.frontend.pulse_and_wait()
+
         theta = np.array(obs_begin.get_positions())
 
         count = 0
         input = np.array([])
         compute_diff = np.array([])
-
         cur_states = [0.0] * (3*m)
         delta_pressures = [0.0] * (3*n)
         cur_states[(3*m-3):3*m] = (theta.reshape(-1)-tar).tolist()[0:3]
@@ -882,15 +812,11 @@ class Robot:
         x_in = np.concatenate((np.array(cur_states).reshape(3*m,1),np.array(delta_pressures).reshape(3*n,1)),axis=0)
 
         while count < t_duration*frequency_frontend:
-            # print(count)
-
             target = tar[0:3]
             input = np.append(input, target.reshape(-1))
 
             feedback = -lqr@x_in
             compute_diff = np.append(compute_diff, feedback.reshape(-1))
-            # print(x_in)
-            # print(feedback)
             
             pressure_ago = [int(self.anchor_ago_list[i]+feedback[i,0]) if i<3 else self.anchor_ago_list[i] for i in self.dof_list]
             pressure_ant = [int(self.anchor_ant_list[i]-feedback[i,0]) if i<3 else self.anchor_ant_list[i] for i in self.dof_list]
@@ -905,6 +831,7 @@ class Robot:
             observation = self.frontend.pulse_and_wait()
 
             theta = np.array(observation.get_positions())
+
             iteration += iterations_per_command
             count += 1
             
@@ -915,12 +842,11 @@ class Robot:
             [delta_pressures.pop(0) for i in range(3)]
             x_in = np.concatenate((np.array(cur_states).reshape(3*m,1),np.array(delta_pressures).reshape(3*n,1)),axis=0)
 
-        iteration_end = iteration
-            
+        iteration_end = iteration            
         time = np.array([])
         position = np.array([])
-
         iteration = iteration_begin
+
         while iteration < iteration_end:
             observation = self.frontend.read(iteration)
             obs_position = np.array( observation.get_positions() )
@@ -935,7 +861,92 @@ class Robot:
         
         return time, input, position, compute_diff
 
-    def ILC(self, number_iteration, GLOBAL_INITIAL, mode_name='none', ref_traj=None, T_go=None):
+    def LQITrackingTesting(self, ref_traj, frequency_frontend=100, frequency_backend=500):
+        '''
+        This function is used to test the performance of reference tracking using LQI controller, 
+        with modification based on the function LQITesting() above.
+        '''
+        lqi = np.copy( self.lqi_k_tracking )
+        m = self.m_4_y
+        n = self.n_4_u
+
+        period_backend = 1.0 / frequency_backend
+        period_frontend = 1.0 / frequency_frontend
+        t = 1 / frequency_frontend
+        iterations_per_command = int( period_frontend / period_backend )
+
+        iteration = self.frontend.latest().get_iteration() + 500
+        iteration_begin = iteration
+
+        self.frontend.add_command(self.anchor_ago_list, self.anchor_ant_list,
+                                  o80.Iteration(iteration-iterations_per_command),
+                                  o80.Mode.QUEUE)
+        obs_begin = self.frontend.pulse_and_wait()
+
+        theta = np.array(obs_begin.get_positions())
+        theta_begin = np.copy(theta)
+
+        count = 0
+        input = np.array([])
+        compute_diff = np.array([])
+        x_in = np.zeros((3*(m+n),1))
+        x_e = 0.01*(ref_traj[0:3,count].reshape(3,1) - x_in[(3*m-3):3*m])
+        cur_states = [0.0] * (3*m)
+        delta_pressures = [0.0] * (3*n)
+
+        while count < ref_traj.shape[1]:
+            input = np.append(input, theta_begin.reshape(-1)[0:3] + ref_traj[0:3,count].reshape(-1))
+
+            x_aug = np.concatenate((x_in,x_e),axis=0)
+            feedback = -lqi@x_aug
+            compute_diff = np.append(compute_diff, feedback.reshape(-1))
+            
+            pressure_ago = [int(self.anchor_ago_list[i]+feedback[i,0]) if i<3 else self.anchor_ago_list[i] for i in self.dof_list]
+            pressure_ant = [int(self.anchor_ant_list[i]-feedback[i,0]) if i<3 else self.anchor_ant_list[i] for i in self.dof_list]
+            
+            self.frontend.add_command(pressure_ago, pressure_ant,
+                                      o80.Iteration(iteration),
+                                      o80.Mode.QUEUE)    
+            self.frontend.pulse()
+            self.frontend.add_command(pressure_ago, pressure_ant,
+                                      o80.Iteration(iteration + iterations_per_command - 1),
+                                      o80.Mode.QUEUE)
+            observation = self.frontend.pulse_and_wait()
+
+            theta = np.array(observation.get_positions())
+
+            iteration += iterations_per_command
+            count += 1
+            
+            if count < ref_traj.shape[1]:
+                update_states = theta.reshape(-1)-theta_begin.reshape(-1)
+                [cur_states.append(update_states.tolist()[i]) for i in range(3)]
+                [cur_states.pop(0) for i in range(3)]
+                [delta_pressures.append(feedback.reshape(-1).tolist()[i]) for i in range(3)]
+                [delta_pressures.pop(0) for i in range(3)]
+                x_in = np.concatenate((np.array(cur_states).reshape(3*m,1),np.array(delta_pressures).reshape(3*n,1)),axis=0)
+                x_e = x_e + 0.01*(ref_traj[0:3,count].reshape(3,1) - x_in[(3*m-3):3*m])
+
+        iteration_end = iteration            
+        time = np.array([])
+        position = np.array([])
+        iteration = iteration_begin
+
+        while iteration < iteration_end:
+            observation = self.frontend.read(iteration)
+            obs_position = np.array( observation.get_positions() )
+            obs_time = np.array( observation.get_time_stamp() )*1e-9
+
+            position = np.append(position, obs_position.reshape(-1)[0:3])
+            time = np.append(time, obs_time)
+
+            iteration += iterations_per_command
+        
+        time = time-time[0]
+        
+        return time, input, position, compute_diff, theta_begin.reshape(-1)
+
+    def ILC(self, number_iteration, GLOBAL_INITIAL, mode_name='none', ref_traj=None, T_go=None, p_int=None, obj=None):
         '''
         only get the feedforward control without exciting the simulation/real system
         u is the basic presssure and ff is the feedforward control
@@ -1027,8 +1038,8 @@ class Robot:
             RG = RobotGeometry(initial_posture=PAMY_CONFIG.GLOBAL_INITIAL)
             (_, end_ref) = RG.AngleToEnd(ref_traj)
             (_, end_real) = RG.AngleToEnd(y)
-            wandb_plot(i_iter=i, frequency=1, t_stamp=t_stamp, ff=ff, fb=fb, y=y_, theta_=ref_traj, t_stamp_list=[], theta_list=[], T_go_list=[T_go], p_int_record=[], 
-                   obs_ago=obs_ago, obs_ant=obs_ant, des_ago=des_ago, des_ant=des_ant, SI_ref = None, disturbance=disturbance, end_ref=end_ref, end_real=end_real)
+            wandb_plot(i_iter=i, period=1, t_stamp=t_stamp, ff=ff, fb=fb, y=y_, theta_=ref_traj, t_stamp_list=[], theta_list=[], T_go_list=[T_go], p_int_record=[p_int], 
+                   obs_ago=obs_ago, obs_ant=obs_ant, des_ago=des_ago, des_ant=des_ant, disturbance=disturbance, end_ref=end_ref, end_real=end_real)
 
             # record all the results of each iteration
             fb_history.append(np.copy(fb))
@@ -1042,8 +1053,10 @@ class Robot:
 
             # set the same initial angle for the next iteration
             print("Begin to initialize...")
-            # self.AngleInitialization(GLOBAL_INITIAL)
-            (ig_t, ig_step, ig_position, ig_diff, ig_theta_zero) = self.LQRTesting(amp = np.array([[30], [30], [30]])/180*math.pi, t_start = 0.0, t_duration = 6.0)
+            if obj=='sim':
+                self.AngleInitialization(PAMY_CONFIG.GLOBAL_INITIAL)
+            else:
+                self.LQITesting(t_start = 0.0, t_duration = 6.0)
             self.PressureInitialization()
             print("...initialization completed")
 
@@ -1053,16 +1066,20 @@ class Robot:
         #                                 controller='pd' )
             
         #     repeated.append(np.copy(y))
-        #     # self.AngleInitialization(GLOBAL_INITIAL)
-        #     (ig_t, ig_step, ig_position, ig_diff, ig_theta_zero) = self.LQRTesting(amp = np.array([[30], [30], [30]])/180*math.pi, t_start = 0.0, t_duration = 6.0)
+        #     if obj=='sim':
+        #         self.AngleInitialization(PAMY_CONFIG.GLOBAL_INITIAL)
+        #     else:
+        #         self.LQITesting(t_start = 0.0, t_duration = 6.0)
         #     self.PressureInitialization()
 
         # mode_name_list = ['ff+fb', 'ff+fb', 'ff+fb', 'ff+fb']
         # (y_pid, _, _, _) = self.Control(self.y_desired, mode_name_list=mode_name_list, 
         #                                 ifplot="no", u_ago=u_ago, u_ant=u_ant, ff=ff, echo="yes", 
         #                                 controller='pd' )
-        # # self.AngleInitialization(GLOBAL_INITIAL)
-        # (ig_t, ig_step, ig_position, ig_diff, ig_theta_zero) = self.LQRTesting(amp = np.array([[30], [30], [30]])/180*math.pi, t_start = 0.0, t_duration = 6.0)
+        # if obj=='sim':
+        #     self.AngleInitialization(PAMY_CONFIG.GLOBAL_INITIAL)
+        # else:
+        #     self.LQITesting(t_start = 0.0, t_duration = 6.0)
         # self.PressureInitialization()
 
         y_pid = None

@@ -5,12 +5,12 @@ that limits the computed inputs within the allowed ranges.
 import numpy as np
 
 # TODO: need to solve the prolem of a circular import so that we can import PAMY_CONFIG directly for desired values below
-anchor_ago_list = np.array([20500, 22000, 13850, 17000])
-anchor_ant_list = np.array([20500, 20000, 13850, 17000])
-ago_min_list = np.array([12000, 14000, 8850, 13000])
-ago_max_list = np.array([29000, 30000, 18850, 19000])
-ant_min_list = np.array([12000, 12000, 8850, 13000])
-ant_max_list = np.array([29000, 28000, 18850, 21900])
+anchor_ago_list = np.array([20500, 16000, 13850, 17000])
+anchor_ant_list = np.array([20500, 15500, 13850, 17000])
+ago_min_list = np.array([12000, 10000, 8850,  13000])
+ago_max_list = np.array([29000, 22000, 18850, 19000])
+ant_min_list = np.array([12000, 9500, 8850,  13000])
+ant_max_list = np.array([29000, 21500, 18850, 21900])
 
 ago_pressure_max = ago_max_list - anchor_ago_list
 ago_pressure_min = ago_min_list - anchor_ago_list

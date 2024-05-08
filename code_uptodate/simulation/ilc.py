@@ -82,7 +82,7 @@ for index in index_list:
     P_history, d_lifted_history, P_lifted_history, \
     fb_history, ago_history, ant_history, y_pid) = Pamy.ILC(number_iteration=number_iteration, 
                                                             GLOBAL_INITIAL=PAMY_CONFIG.GLOBAL_INITIAL,
-                                                            mode_name='none', ref_traj=theta_, T_go=T_go_list[-1], p_int=p_int_record[-1])
+                                                            mode_name='none', ref_traj=theta_, T_go=T_go_list[-1], p_int=p_int_record[-1], obj=obj)
 
     ### save useful results
     # T = t_stamp[-1] - 1.5

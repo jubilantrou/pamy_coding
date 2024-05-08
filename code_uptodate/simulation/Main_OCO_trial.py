@@ -1,3 +1,4 @@
+# TODO: need to constantly reformat codes into functions whenever possible for easier use
 '''
 This script is used to train PAMY2 for better tracking performance 
 with Online Convex Optimization.
@@ -47,7 +48,7 @@ else:
                                                        height=paras.height, width=paras.width, filter_size=paras.filter_size, device=device, hidden_size=paras.hidden_size, model = paras.ff_model)
     disturb_block_list, disturb_shape_list, disturb_idx_list, disturb_W_list = trainable_blocks_init(flag_dof=paras.flag_dof, nn_type=paras.nn_type, nr_channel=paras.nr_channel, 
                                                                                 height=paras.height, width=paras.width, filter_size=paras.filter_size, device=device, hidden_size=paras.hidden_size, 
-                                                                                model=paras.ff_model, disturbance=[9e-4,6e-4,8e-3])
+                                                                                model=paras.ff_model, disturbance=[9e-4,6e-4,8e-3]) # for simulator disturbance=[1e-3,1e-3,2e-2]
 # print('-'*30)
 # print('feedback blocks')
 # print('-'*30)
@@ -58,15 +59,13 @@ else:
 
 # %% do the online learning
 if paras.flag_wandb:
-    run = wandb.init(
+    wandb.init(
         entity='jubilantrou',
         project='pamy_oco_trial',
         config = paras
     )
 
-### initialize the hessian part for the Newton method
-# TODO: one more for fb part
-# TODO: one more for disturbances part
+### initialize the hessian parts for the Newton Method
 if paras.method_updating_policy == 'NM':
     hessian_temp = []
     fb_hessian_temp = []
@@ -81,21 +80,21 @@ if paras.method_updating_policy == 'NM':
             fb_hessian_temp.append(0)
             disturb_hessian_temp.append(0)         
 
+### get the fixed trajectory for training
+if paras.traj_option == 'fixed':
+    for jump in range(paras.skipped_traj_num):
+        (t, angle) = get_random()
+        (p, v, a, j, theta, t_stamp, vel_int) = RG.PathPlanning(time_point=0, T_go=t, angle=PAMY_CONFIG.GLOBAL_INITIAL, target=angle, part=0, target_vel=4)
+    
+    (t, angle) = get_random()
+    T_go = t
+    (p, v, a, j, theta, t_stamp, vel_int) = RG.PathPlanning(time_point=0, T_go=t, angle=PAMY_CONFIG.GLOBAL_INITIAL, target=angle, part=0, target_vel=4)
+    theta = np.vstack((theta, np.zeros((1, theta.shape[1]))))
+    theta_ = np.copy(theta) # absolute values of the reference
+    theta = theta - theta[:, 0].reshape(-1, 1) # relative values of the reference
+    Pamy.ImportTrajectory(theta, t_stamp)
+
 i_iter = 0
-
-# for exp_trained in range(250):
-#     (t, angle) = get_random()
-
-## get the fixed trajectory
-# (t, angle) = get_random()
-# T_go = t
-# (p, v, a, j, theta, t_stamp, _) = RG.PathPlanning(time_point=0, angle=PAMY_CONFIG.GLOBAL_INITIAL, T_go=t, target=angle, part=0)
-# theta = np.vstack((theta, np.zeros((1, theta.shape[1]))))
-# theta_ = np.copy(theta) # absolute values of the reference
-# theta = theta - theta[:, 0].reshape(-1, 1) # relative values of the reference
-# Pamy.ImportTrajectory(theta, t_stamp)
-
-# local_counter = 0
 while True:
     if paras.flag_time_analysis:
         profiler = Profiler()
@@ -105,43 +104,54 @@ while True:
     print('iter {}'.format(i_iter+1))
     print('-'*30)
 
-    # (t, angle) = get_random()
-    # print(t)
-    # print(angle)
-    # T_go = t
-    # (p, v, a, j, theta, t_stamp, _) = RG.PathPlanning(time_point=0, angle=PAMY_CONFIG.GLOBAL_INITIAL, T_go=t, target=angle, part=0, target_vel=4)
-    # theta = np.vstack((theta, np.zeros((1, theta.shape[1]))))
-    # theta_ = np.copy(theta) # absolute values of the reference
-    # theta = theta - theta[:, 0].reshape(-1, 1) # relative values of the reference
-    # Pamy.ImportTrajectory(theta, t_stamp)
+    ### get multiple trajectories for training
+    if paras.traj_option == 'multiple':
+        if i_iter == 0:
+            for jump in range(paras.skipped_traj_num):
+                (t, angle) = get_random()
+                (p, v, a, j, theta, t_stamp, vel_int) = RG.PathPlanning(time_point=0, T_go=t, angle=PAMY_CONFIG.GLOBAL_INITIAL, target=angle, part=0, target_vel=4)
+        
+        (t, angle) = get_random()
+        T_go = t
+        (p, v, a, j, theta, t_stamp, vel_int) = RG.PathPlanning(time_point=0, T_go=t, angle=PAMY_CONFIG.GLOBAL_INITIAL, target=angle, part=0, target_vel=4)
+        theta = np.vstack((theta, np.zeros((1, theta.shape[1]))))
+        theta_ = np.copy(theta) # absolute values of the reference
+        theta = theta - theta[:, 0].reshape(-1, 1) # relative values of the reference
+        Pamy.ImportTrajectory(theta, t_stamp)
 
-    ### get the reference trajectory
-    # TODO: add an API for fixed trajectory testing
-    (t, angle) = get_random()
-    (p, v, a, j, theta, t_stamp, theta_list, t_stamp_list, p_int_record, T_go_list, time_update_record, update_point_index_list) = RG.updatedPathPlanning(
-        time_point=0, T_go=t, angle=PAMY_CONFIG.GLOBAL_INITIAL, target=angle, method=paras.method_updating_traj, target_vel=4)
-    
-    # aug_ref_traj = []
-    # for j in range(len(update_point_index_list)):
-    #     comp = get_compensated_data(data=np.hstack((theta[:,:update_point_index_list[j]], theta_list[j][:,time_update_record[j]:])), h_l=paras.h_l, h_r=0)
-    #     comp = comp - comp[:,0].reshape(-1, 1) # rel
-    #     aug_ref_traj.append(comp)
+    ### get multiple trajectories with updates for training
+    if paras.traj_option == 'multiple+updates':
+        if i_iter == 0:
+            for jump in range(paras.skipped_traj_num):
+                (t, angle) = get_random()
+                (p, v, a, j, theta, t_stamp, vel_int, theta_list, t_stamp_list, p_int_record, T_go_list, time_update_record, update_point_index_list) = RG.updatedPathPlanning(
+                    time_point=0, T_go=t, angle=PAMY_CONFIG.GLOBAL_INITIAL, target=angle, method=paras.method_updating_traj, target_vel=4)
+        (t, angle) = get_random()
+        (p, v, a, j, theta, t_stamp, vel_int, theta_list, t_stamp_list, p_int_record, T_go_list, time_update_record, update_point_index_list) = RG.updatedPathPlanning(
+            time_point=0, T_go=t, angle=PAMY_CONFIG.GLOBAL_INITIAL, target=angle, method=paras.method_updating_traj, target_vel=4)
+        
+        # aug_ref_traj = []
+        # for j in range(len(update_point_index_list)):
+        #     comp = get_compensated_data(data=np.hstack((theta[:,:update_point_index_list[j]], theta_list[j][:,time_update_record[j]:])), h_l=paras.h_l, h_r=0)
+        #     comp = comp - comp[:,0].reshape(-1, 1) # relative values
+        #     aug_ref_traj.append(comp)
 
-    disturb_aug_ref_traj = []
-    for j in range(len(update_point_index_list)):
-        comp = get_compensated_data(data=np.hstack((theta[:,:update_point_index_list[j]], theta_list[j][:,time_update_record[j]:])), h_l=paras.h_l, h_r=0)
-        comp = comp - comp[:,0].reshape(-1, 1) # rel
-        disturb_aug_ref_traj.append(comp)
+        disturb_aug_ref_traj = []
+        for j in range(len(update_point_index_list)):
+            comp = get_compensated_data(data=np.hstack((theta[:,:update_point_index_list[j]], theta_list[j][:,time_update_record[j]:])), h_l=paras.h_l, h_r=0)
+            comp = comp - comp[:,0].reshape(-1, 1) # relative values
+            disturb_aug_ref_traj.append(comp)
 
-    theta = np.vstack((theta, np.zeros((1, theta.shape[1]))))
-    theta_ = np.copy(theta) # absolute values of the reference
-    theta = theta - theta[:, 0].reshape(-1, 1) # relative values of the reference
-    Pamy.ImportTrajectory(theta, t_stamp)
-    # aug_ref_traj.append(get_compensated_data(data=Pamy.y_desired, h_l=paras.h_l, h_r=paras.h_r))
-    disturb_aug_ref_traj.append(get_compensated_data(data=Pamy.y_desired, h_l=paras.h_l, h_r=paras.h_r))
+        theta = np.vstack((theta, np.zeros((1, theta.shape[1]))))
+        theta_ = np.copy(theta) # absolute values of the reference
+        theta = theta - theta[:, 0].reshape(-1, 1) # relative values of the reference
+        Pamy.ImportTrajectory(theta, t_stamp)
+
+        # aug_ref_traj.append(get_compensated_data(data=Pamy.y_desired, h_l=paras.h_l, h_r=paras.h_r))
+        disturb_aug_ref_traj.append(get_compensated_data(data=Pamy.y_desired, h_l=paras.h_l, h_r=paras.h_r))
 
     ### get the identified approximate linear model
-    Pamy.GetOptimizer_convex(angle_initial=PAMY_CONFIG.GLOBAL_INITIAL, nr_channel=paras.nr_channel, coupling=paras.coupling)   
+    Pamy.GetOptimizer_convex(angle_initial=PAMY_CONFIG.GLOBAL_INITIAL, nr_channel=paras.nr_channel, coupling=paras.coupling)
 
     ### get the feedforward inputs
     # TODO: add an API for fixed trajectory testing
@@ -168,17 +178,11 @@ while True:
     print('currrent max input is: {}'.format(np.max(np.abs(u_add))))
 
     ### get the real output
-    # TODO
-    # Pamy.AngleInitialization(PAMY_CONFIG.GLOBAL_INITIAL)
-    # Pamy.PressureInitialization(duration=1)
-    (t, step, position, diff, theta_zero) = Pamy.LQRTesting(amp = np.array([[30], [30], [30]])/180*math.pi, t_start = 0.0, t_duration = 6.0)
-
-    # Pamy.PressureInitialization(duration=1)
-    # reset_pressures = np.array(Pamy.frontend.latest().get_observed_pressures())
-    # Pamy.anchor_ago_list = reset_pressures[:, 0]
-    # Pamy.anchor_ant_list = reset_pressures[:, 1]
-    # print('reset anchor pressures:')
-    # print(reset_pressures)
+    if paras.obj=='sim':
+        Pamy.AngleInitialization(PAMY_CONFIG.GLOBAL_INITIAL)
+    else:
+        Pamy.LQITesting(t_start = 0.0, t_duration = 6.0)
+    Pamy.PressureInitialization()
 
     angle_initial_read = np.array(frontend.latest().get_positions())
     (y, ff, fb, obs_ago, obs_ant, des_ago, des_ant, fb_datasets) = Pamy.online_convex_optimization(b_list=(u_add), mode_name='ff+fb', coupling=paras.coupling, learning_mode='u', trainable_fb=None, device=device, dim_fb=paras.fb_input_size)
@@ -200,9 +204,9 @@ while True:
     (_, end_ref) = RG.AngleToEnd(theta_)
     (_, end_real) = RG.AngleToEnd(y)
     if paras.flag_wandb:
-        plots_to_show = wandb_plot(i_iter=i_iter, frequency=1, t_stamp=t_stamp, ff=ff, fb=fb, y=y, theta_=theta_, t_stamp_list=t_stamp_list, theta_list=theta_list, T_go_list=T_go_list, p_int_record=p_int_record, 
-                   obs_ago=obs_ago, obs_ant=obs_ant, des_ago=des_ago, des_ant=des_ant, disturbance=None, end_ref=end_ref, end_real=end_real)
-        # plots_to_show = wandb_plot(i_iter=i_iter, frequency=1, t_stamp=t_stamp, ff=ff, fb=fb, y=y, theta_=theta_, t_stamp_list=[], theta_list=[], T_go_list=[T_go], p_int_record=[], 
+        wandb_plot(i_iter=i_iter, period=1, t_stamp=t_stamp, ff=ff, fb=fb, y=y, theta_=theta_, t_stamp_list=t_stamp_list, theta_list=theta_list, T_go_list=T_go_list, p_int_record=p_int_record, 
+                   obs_ago=obs_ago, obs_ant=obs_ant, des_ago=des_ago, des_ant=des_ant, disturbance=d, end_ref=end_ref, end_real=end_real)
+        # wandb_plot(i_iter=i_iter, period=1, t_stamp=t_stamp, ff=ff, fb=fb, y=y, theta_=theta_, t_stamp_list=[], theta_list=[], T_go_list=[T_go], p_int_record=[angle], 
         #            obs_ago=obs_ago, obs_ant=obs_ant, des_ago=des_ago, des_ant=des_ant, disturbance=d, end_ref=end_ref, end_real=end_real)
 
     ### compute gradients that will be used to update parameters 
@@ -336,10 +340,10 @@ while True:
             W_list[dof] = W_list[dof] - delta
         return W_list, delta  
 
-    # W_list, delta = get_new_parameters(W_list=W_list, method=paras.method_updating_policy, lr=paras.lr_list, par_l_par_y=par_l_par_y, par_y_par_w=par_y_par_wff, par_pai_par_w=par_paiff_par_wff)   
+    # W_list, delta = get_new_parameters(W_list=W_list, method=paras.method_updating_policy, lr=get_decreasing_step_size((i_iter+1)//10,paras.lr_list), par_l_par_y=par_l_par_y, par_y_par_w=par_y_par_wff, par_pai_par_w=par_paiff_par_wff)   
     # block_list = set_parameters(block_list, W_list, idx_list, shape_list, device)
-    disturb_W_list, disturb_delta = get_new_parameters(W_list=disturb_W_list, method=paras.method_updating_policy, lr=get_decreasing_step_size((i_iter+1)//10,paras.lr_list), par_l_par_y=par_l_par_y, par_y_par_w=par_Bdd_par_wd, par_pai_par_w=par_paid_par_wd, disturb=True)   
-    disturb_block_list = set_parameters(disturb_block_list, disturb_W_list, disturb_idx_list, disturb_shape_list, device)
+    # disturb_W_list, disturb_delta = get_new_parameters(W_list=disturb_W_list, method=paras.method_updating_policy, lr=get_decreasing_step_size((i_iter+1)//10,paras.lr_list), par_l_par_y=par_l_par_y, par_y_par_w=par_Bdd_par_wd, par_pai_par_w=par_paid_par_wd, disturb=True)   
+    # disturb_block_list = set_parameters(disturb_block_list, disturb_W_list, disturb_idx_list, disturb_shape_list, device)
     # TODO: an unsolved bug after adding learnbale fb
     # TODO: an unsolved bug, also need to adapt for ff blocks
     # if i_iter==0:
@@ -407,8 +411,7 @@ while True:
     print('loss:')
     print(loss)
     if paras.flag_wandb:
-        run.log({'log10(loss_0)': np.log10(loss[0]/t_stamp[-1]/math.pi*180/100), 'log10(loss_1)': np.log10(loss[1]/t_stamp[-1]/math.pi*180/100), 'log10(loss_2)': np.log10(loss[2]/t_stamp[-1]/math.pi*180/100)}, i_iter+1)
-        run.log({'visualization': plots_to_show})
+        wandb.log({'log10(loss_0)': np.log10(loss[0]/t_stamp[-1]/math.pi*180/100), 'log10(loss_1)': np.log10(loss[1]/t_stamp[-1]/math.pi*180/100), 'log10(loss_2)': np.log10(loss[2]/t_stamp[-1]/math.pi*180/100)}, i_iter+1)
 
     i_iter += 1
 

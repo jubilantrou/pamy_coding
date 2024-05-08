@@ -63,7 +63,7 @@ block_list, shape_list, idx_list, W_list = trainable_blocks_init(flag_dof=paras.
 
 # %% do the online learning
 if paras.flag_wandb:
-    run = wandb.init(
+    wandb.init(
         entity='jubilantrou',
         project='pamy_oco_trial',
         config = paras
@@ -94,7 +94,7 @@ i_iter = 0
 ### get the fixed trajectory
 # (t, angle) = get_random()
 # T_go = t
-# (p, v, a, j, theta, t_stamp) = RG.PathPlanning(time_point=0, angle=PAMY_CONFIG.GLOBAL_INITIAL, T_go=t, target=angle, part=0)
+# (p, v, a, j, theta, t_stamp, vel_int) = RG.PathPlanning(time_point=0, T_go=t, angle=PAMY_CONFIG.GLOBAL_INITIAL, target=angle, part=0, target_vel=4)
 # theta = np.vstack((theta, np.zeros((1, theta.shape[1]))))
 # theta_ = np.copy(theta) # absolute values of the reference
 # theta = theta - theta[:, 0].reshape(-1, 1) # relative values of the reference
@@ -112,8 +112,8 @@ while True:
     ### get the reference trajectory
     # TODO: add an API for fixed trajectory testing
     # (t, angle) = get_random()
-    # (p, v, a, j, theta, t_stamp, theta_list, t_stamp_list, p_int_record, T_go_list, time_update_record, update_point_index_list) = RG.updatedPathPlanning(
-    #     time_point=0, T_go=t, angle=PAMY_CONFIG.GLOBAL_INITIAL, target=angle, method=paras.method_updating_traj)
+    # (p, v, a, j, theta, t_stamp, vel_int, theta_list, t_stamp_list, p_int_record, T_go_list, time_update_record, update_point_index_list) = RG.updatedPathPlanning(
+    #     time_point=0, T_go=t, angle=PAMY_CONFIG.GLOBAL_INITIAL, target=angle, method=paras.method_updating_traj, target_vel=4)
     
     # aug_ref_traj = []
     # for j in range(len(update_point_index_list)):
@@ -135,7 +135,7 @@ while True:
 
     (t, angle) = get_random()
     T_go = t
-    (p, v, a, j, theta, t_stamp) = RG.PathPlanning(time_point=0, angle=PAMY_CONFIG.GLOBAL_INITIAL, T_go=t, target=angle, part=0)
+    (p, v, a, j, theta, t_stamp, vel_int) = RG.PathPlanning(time_point=0, T_go=t, angle=PAMY_CONFIG.GLOBAL_INITIAL, target=angle, part=0, target_vel=4)
     theta = np.vstack((theta, np.zeros((1, theta.shape[1]))))
     theta_ = np.copy(theta) # absolute values of the reference
     theta = theta - theta[:, 0].reshape(-1, 1) # relative values of the reference
@@ -185,7 +185,10 @@ while True:
     print('___for checking___')
     print('currrent max input is: {}'.format(np.max(np.abs(u))))
 
-    (t, step, position, diff, theta_zero) = Pamy.LQRTesting(amp = np.array([[30], [30], [30]])/180*math.pi, t_start = 0.0, t_duration = 6.0)
+    if paras.obj=='sim':
+        Pamy.AngleInitialization(PAMY_CONFIG.GLOBAL_INITIAL)
+    else:
+        Pamy.LQITesting(t_start = 0.0, t_duration = 6.0)
 
     # Pamy.PressureInitialization(duration=1)
     # reset_pressures = np.array(Pamy.frontend.latest().get_observed_pressures())
@@ -214,9 +217,9 @@ while True:
     (_, end_ref) = RG.AngleToEnd(theta_)
     (_, end_real) = RG.AngleToEnd(y)
     if paras.flag_wandb:
-        # plots_to_show = wandb_plot(i_iter=i_iter, frequency=1, t_stamp=t_stamp, ff=u, fb=u_add, y=y, theta_=theta_, t_stamp_list=t_stamp_list, theta_list=theta_list, T_go_list=T_go_list, p_int_record=p_int_record, 
+        # wandb_plot(i_iter=i_iter, period=1, t_stamp=t_stamp, ff=u, fb=u_add, y=y, theta_=theta_, t_stamp_list=t_stamp_list, theta_list=theta_list, T_go_list=T_go_list, p_int_record=p_int_record, 
         #            obs_ago=obs_ago, obs_ant=obs_ant, des_ago=des_ago, des_ant=des_ant, disturbance=d, end_ref=end_ref, end_real=end_real)
-        plots_to_show = wandb_plot(i_iter=i_iter, frequency=1, t_stamp=t_stamp, ff=ff, fb=fb, y=y, theta_=theta_, t_stamp_list=[], theta_list=[], T_go_list=[T_go], p_int_record=[], 
+        wandb_plot(i_iter=i_iter, period=1, t_stamp=t_stamp, ff=ff, fb=fb, y=y, theta_=theta_, t_stamp_list=[], theta_list=[], T_go_list=[T_go], p_int_record=[angle], 
                    obs_ago=obs_ago, obs_ant=obs_ant, des_ago=des_ago, des_ant=des_ant, disturbance=None, end_ref=end_ref, end_real=end_real)
 
     ### compute gradients that will be used to update parameters 
@@ -436,8 +439,7 @@ while True:
     print('loss:')
     print(loss)
     if paras.flag_wandb:
-        run.log({'log(loss_0)': np.log10(loss[0]/t_stamp[-1]/math.pi*180/100), 'log(loss_1)': np.log10(loss[1]/t_stamp[-1]/math.pi*180/100), 'log(loss_2)': np.log10(loss[2]/t_stamp[-1]/math.pi*180/100)}, i_iter+1)
-        run.log({'visualization': plots_to_show})
+        wandb.log({'log(loss_0)': np.log10(loss[0]/t_stamp[-1]/math.pi*180/100), 'log(loss_1)': np.log10(loss[1]/t_stamp[-1]/math.pi*180/100), 'log(loss_2)': np.log10(loss[2]/t_stamp[-1]/math.pi*180/100)}, i_iter+1)
 
     i_iter += 1
 

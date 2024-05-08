@@ -107,6 +107,7 @@ if __name__ == '__main__':
         (t, pos_ref, position, u_LQI, theta_begin) = Pamy.LQITesting(t_start = t_start, t_duration = t_duration, amp = amp)
         plot(t, pos_ref, position, u_LQI)
 
+        # TODO: need to tune parameters for LQRTestingFollowup() again after the repairing of PAMY
         (t_followup, pos_ref_followup, position_followup, u_LQR) = Pamy.LQRTestingFollowup(tar = PAMY_CONFIG.GLOBAL_INITIAL, t_duration = t_duration)
         plot(t_followup, pos_ref_followup, position_followup, u_LQR)
 
@@ -124,6 +125,7 @@ if __name__ == '__main__':
         theta_ = np.copy(theta) # absolute values of the reference
         theta = theta - theta[:, 0].reshape(-1, 1) # relative values of the reference
 
+        # TODO: need to tune parameters for LQITrackingTesting() again after the repairing of PAMY
         (t, pos_ref, position, u_LQI, theta_begin) = Pamy.LQITrackingTesting(ref_traj = theta)
         plot(t, pos_ref, position, u_LQI)
         
